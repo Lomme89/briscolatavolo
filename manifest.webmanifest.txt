@@ -1,0 +1,18 @@
+{
+  "name": "Briscola al tavolo",
+  "short_name": "Briscola",
+  "description": "Briscola e scopa con carte napoletane, da due a sei giocatori, ognuno col proprio telefono.",
+  "lang": "it",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#102A22",
+  "theme_color": "#102A22",
+  "categories": ["games"],
+  "icons": [
+    { "src": "icone/icona-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icone/icona-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icone/icona-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
