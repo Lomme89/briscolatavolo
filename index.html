@@ -135,7 +135,8 @@ input[type=text]:focus{outline:2px solid var(--oro);outline-offset:1px}
 .seatlist{list-style:none;margin:14px 0 0;padding:0;display:grid;gap:8px}
 .seatlist li{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:10px;
   background:var(--su-alto);box-shadow:var(--su-alto-om);border:1px solid var(--felt-line);
-  font-size:15px;animation:slide .3s both}
+  font-size:15px}
+.seatlist li.nuovo{animation:slide .3s both}
 .seatlist li .n{width:22px;height:22px;border-radius:50%;background:var(--felt-line);display:grid;
   place-items:center;font-size:11px;flex:none}
 .seatlist li.me{border-color:var(--oro)}
@@ -148,6 +149,9 @@ input[type=text]:focus{outline:2px solid var(--oro);outline-offset:1px}
 .opp{display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:var(--su-alto);
   box-shadow:var(--su-alto-om);border:1px solid transparent;font-size:13px;transition:border-color .25s,box-shadow .25s}
 .opp.turn{border-color:var(--oro);box-shadow:var(--su-alto-om),0 0 0 3px rgba(214,154,36,.16)}
+.opp .att{display:none}
+.opp.turn .att{display:block;width:6px;height:6px;border-radius:50%;background:var(--oro);
+  animation:blink 1.1s infinite;flex:none}
 .opp .mini{display:flex}
 .opp .mini i{width:9px;height:14px;border-radius:2px;background:var(--dorso);
   box-shadow:var(--dorso-om);border:1px solid #40100D;margin-left:-3px;display:block}
@@ -175,7 +179,8 @@ input[type=text]:focus{outline:2px solid var(--oro);outline-offset:1px}
      al bordo del tavolo, le carte si calano al centro di quel che resta. */
   .felt.folto .played{margin-right:calc(var(--dw) * 1.9)}
 }
-.playedwrap{display:flex;flex:none;flex-direction:column;align-items:center;gap:4px;will-change:transform}
+.playedwrap{display:flex;flex:none;flex-direction:column;align-items:center;gap:4px;
+  position:relative;will-change:transform}
 .playedwrap small{font-size:11px;color:var(--dim);max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .playedwrap.best small{color:var(--oro)}
 .played .card{--cw:var(--pw)}
@@ -228,14 +233,32 @@ input[type=text]:focus{outline:2px solid var(--oro);outline-offset:1px}
 .slot:only-child{--r:0deg}
 .slot:first-child:nth-last-child(2){--r:-4.5deg}
 .slot:first-child:nth-last-child(2)~.slot{--r:4.5deg}
-.slot .card{animation:dealIn .4s cubic-bezier(.2,1.3,.4,1) both;transition:transform .16s cubic-bezier(.2,1.6,.4,1),box-shadow .16s}
-.slot:nth-child(2) .card{animation-delay:.06s}
-.slot:nth-child(3) .card{animation-delay:.12s}
+/* L'entrata è legata alla classe .nuova, che il JS mette solo sulle carte
+   appena arrivate: le viste ricostruiscono #app a ogni messaggio di stato, e
+   senza questo la mano rifaceva la distribuzione a ogni mossa altrui. */
+.slot .card{transition:transform .16s cubic-bezier(.2,1.6,.4,1),box-shadow .16s}
+.slot.nuova .card{animation:dealIn .4s cubic-bezier(.2,1.3,.4,1) both}
+.slot.nuova:nth-child(2) .card{animation-delay:.06s}
+.slot.nuova:nth-child(3) .card{animation-delay:.12s}
+/* Respiro: le carte in mano non stanno mai del tutto ferme, ma piano. */
+.slot{animation:ondeggia 4.6s ease-in-out infinite}
+.slot:nth-child(1){animation-delay:-1.9s}
+.slot:nth-child(2){animation-delay:-.4s}
+.slot:nth-child(3){animation-delay:-3.1s}
+.slot.gone,.slot.premuta,.slot.scelta{animation:none}
+@keyframes ondeggia{0%,100%{transform:rotate(var(--r)) translateY(0)}
+  50%{transform:rotate(calc(var(--r) + .6deg)) translateY(-3px)}}
 .slot:disabled{opacity:.58;filter:saturate(.72)}
 .slot.playable:not(:disabled){cursor:pointer}
-.slot.playable:not(:disabled):active{z-index:4}
-.slot.playable:not(:disabled):active .card{transform:translateY(-16px) scale(1.07) rotate(-1deg);
+/* .premuta arriva col pointerdown: su telefono :active non è affidabile e
+   la carta rispondeva solo al click, cioè dopo. */
+.slot.playable:not(:disabled):active,.slot.premuta{z-index:4}
+.slot.playable:not(:disabled):active .card,.slot.premuta .card{
+  transform:translateY(-16px) scale(1.07) rotate(-1deg);
   box-shadow:0 16px 26px rgba(0,0,0,.45)}
+.slot:focus-visible{outline:none;z-index:4}
+.slot:focus-visible .card{outline:2px solid var(--oro);outline-offset:3px;
+  transform:translateY(-10px);box-shadow:0 14px 24px rgba(0,0,0,.42)}
 .slot.gone{pointer-events:none}
 @keyframes dealIn{from{opacity:0;transform:translateY(40px) scale(.8) rotate(-8deg)}}
 .slot .brisc-flag{position:absolute;top:5px;right:5px;width:11px;height:11px;border-radius:50%;
@@ -251,16 +274,27 @@ input[type=text]:focus{outline:2px solid var(--oro);outline-offset:1px}
 .board{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;align-items:center;
   min-height:calc(var(--pw)*1.517 + 10px);padding:4px}
 .board .card{--cw:var(--pw)}
-.board .bc{position:relative;animation:dealIn .35s cubic-bezier(.2,1.3,.4,1) both}
+.board .bc{position:relative}
+.board .bc.nuova{animation:dealIn .35s cubic-bezier(.2,1.3,.4,1) both}
 .board .bc.sel .card{outline:2px solid var(--oro);outline-offset:2px;transform:translateY(-6px)}
 .board .bc .card{transition:transform .15s}
 .vuoto{color:var(--dim);font-size:13px;font-style:italic}
-.opzioni{display:grid;gap:8px;margin-top:12px}
-.opz{display:flex;align-items:center;gap:8px;padding:10px;border-radius:12px;background:var(--su-alto);
-  box-shadow:var(--su-alto-om);border:1px solid var(--felt-line);width:100%;text-align:left}
-.opz .mini2{display:flex;gap:4px}
-.opz .card{--cw:44px}
-.opz span{font-size:13px;color:var(--dim);margin-left:auto}
+/* Scelta della presa: si fa sul tavolo, non in un pannello. */
+.board .bc.sel .card{animation:accesa 1.6s ease-in-out infinite}
+@keyframes accesa{50%{box-shadow:0 0 0 3px rgba(214,154,36,.55),0 8px 22px rgba(0,0,0,.4)}}
+.slot.scelta{z-index:5}
+.slot.scelta .card{transform:translateY(-18px) scale(1.02);
+  outline:2px solid var(--oro);outline-offset:2px;box-shadow:0 18px 30px rgba(0,0,0,.5)}
+.scegli{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center;
+  padding:9px 12px;border-radius:14px;background:var(--su-alto);box-shadow:var(--su-alto-om);
+  border:1px solid var(--oro);max-width:100%}
+.scegli p{margin:0;font-size:13.5px;color:#EFE7D6;text-align:center;flex:1 1 100%}
+.scegli p em{font-style:normal;color:var(--oro);font-family:var(--display);font-size:16px;
+  font-variant-numeric:lining-nums}
+.scegli button{padding:8px 13px;border-radius:9px;font-size:14px;font-weight:600;
+  border:1px solid var(--felt-line);background:rgba(0,0,0,.25);color:#EFE7D6}
+.scegli button.si{background:var(--oro);color:#241A0F;border-color:var(--oro)}
+.turnbar.inviando{background:rgba(0,0,0,.26);color:var(--dim)}
 .presi{font-size:11px;color:var(--dim)}
 .scopa-flash{font-family:var(--display);color:var(--oro)}
 
@@ -277,7 +311,12 @@ input[type=text]:focus{outline:2px solid var(--oro);outline-offset:1px}
 .sc .val.bump{animation:bump .55s cubic-bezier(.2,1.5,.4,1)}
 @keyframes bump{35%{transform:scale(1.32);color:#F6EEDC}}
 .plus{position:absolute;font-family:var(--display);font-size:22px;color:var(--oro);pointer-events:none;
-  z-index:15;text-shadow:0 2px 6px rgba(0,0,0,.6)}
+  z-index:15;text-shadow:0 2px 6px rgba(0,0,0,.6);font-variant-numeric:lining-nums}
+/* Il valore che salta fuori dalla carta mentre si conta la presa. */
+.valcarta{position:absolute;left:50%;top:-6px;transform:translateX(-50%);pointer-events:none;z-index:16;
+  font-family:var(--display);font-size:26px;font-weight:600;color:var(--oro);
+  font-variant-numeric:lining-nums;text-shadow:0 2px 7px rgba(0,0,0,.7)}
+.playedwrap.conta .card{box-shadow:0 0 0 2px rgba(214,154,36,.6),0 10px 26px rgba(0,0,0,.45)}
 .sc{position:relative}
 
 /* ---- pannelli sovrapposti ---- */
@@ -411,18 +450,25 @@ function tono(f,t0,dur,tipo,vol){ const a=ac(); if(!a||muto)return;
   g.gain.linearRampToValueAtTime(vol||.16,a.currentTime+t0+.012);
   g.gain.exponentialRampToValueAtTime(.0008,a.currentTime+t0+dur);
   o.connect(g); g.connect(a.destination); o.start(a.currentTime+t0); o.stop(a.currentTime+t0+dur+.03);}
-function fruscio(t0,vol){ const a=ac(); if(!a||muto)return;
+function fruscio(t0,vol,hz){ const a=ac(); if(!a||muto)return;
   const n=a.sampleRate*.09, buf=a.createBuffer(1,n,a.sampleRate), d=buf.getChannelData(0);
   for(let i=0;i<n;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/n,2.2);
   const s=a.createBufferSource(); s.buffer=buf;
-  const f=a.createBiquadFilter(); f.type='bandpass'; f.frequency.value=1500; f.Q.value=.9;
+  const f=a.createBiquadFilter(); f.type='bandpass'; f.frequency.value=hz||1500; f.Q.value=.9;
   const g=a.createGain(); g.gain.value=vol||.3;
   s.connect(f); f.connect(g); g.connect(a.destination); s.start(a.currentTime+t0);}
+/* Ogni carta che si aggiunge al giro suona un po' più su della precedente:
+   è quello che tiene insieme la sequenza quando si conta la presa. */
+const SCALA=[523,587,659,698,784,880];
 const SND={
-  giocata:()=>fruscio(0,.34),
+  giocata:(i)=>fruscio(0,.34,1180+(i||0)*170),
+  conta:(i,v)=>{ const f=SCALA[Math.min(i||0,5)];
+    tono(f,0,v?.2:.11,'triangle',v?.13:.075);
+    if(v) tono(f*2,.02,.16,'sine',.055); },
   tuoTurno:()=>{tono(880,0,.16,'sine',.1);},
-  presa:()=>{tono(587,0,.14);tono(880,.09,.22);},
-  presaMia:()=>{tono(659,0,.13);tono(880,.08,.13);tono(1175,.16,.3);},
+  presa:(g)=>{const k=g>=20?1.26:g>=10?1.12:1; tono(587*k,0,.14);tono(880*k,.09,.22);},
+  presaMia:(g)=>{const k=g>=20?1.26:g>=10?1.12:1;
+    tono(659*k,0,.13);tono(880*k,.08,.13);tono(1175*k,.16,.3);},
   distribuisci:()=>{for(let i=0;i<4;i++)fruscio(i*.11,.26);},
   entra:()=>{tono(523,0,.12,'sine',.09);tono(784,.08,.2,'sine',.09);},
   finePro:()=>{[523,659,784,1046].forEach((f,i)=>tono(f,i*.11,.35));},
@@ -567,7 +613,7 @@ function autoResolve(){
         S.seats.forEach((s,i)=>{ if(groupOf(i,S)===gr) S.albo[s.id]=(S.albo[s.id]||0)+1; }); });
     }
     resolving=false; pubState(); paint();
-  },1700);
+  },ritmoPresa(S).fine);
 }
 
 /* ================= flusso ================= */
@@ -594,15 +640,20 @@ function esci(){
   if(cli){cli.unsubscribe(T(code).s);cli.unsubscribe(T(code).a);}
   if(isHost&&cli) cli.publish(T(code).s,'',{retain:true});
   code=null;isHost=false;S=null;mySeat=-1;location.hash='';invitoVisto=true;
-  prev={turn:null,tavolo:0,fase:null,punti:null};paint();
+  prev={turn:null,tavolo:0,fase:null,punti:null};azzeraViste();paint();
 }
+
+/* Il telefono in mano al tavolo sta quasi sempre in silenzioso: la
+   vibrazione è il canale che arriva davvero. Segue il tasto del muto,
+   perché quel tasto dice "silenzia", non "silenzia solo l'audio". */
+function vibra(p){ if(muto||RM) return; try{ navigator.vibrate && navigator.vibrate(p); }catch(e){} }
 
 /* ================= suoni reattivi ================= */
 function suoniDiff(){
   if(!S||S.phase==='attesa') return;
   if(S.game==='scopa'||!S.table){
     if(S.phase==='gioco'&&prev.fase!=='gioco') SND.distribuisci();
-    else if(S.phase==='gioco'&&S.turn===mySeat&&prev.turn!==mySeat) SND.tuoTurno();
+    else if(S.phase==='gioco'&&S.turn===mySeat&&prev.turn!==mySeat){ SND.tuoTurno(); vibra(14); }
     if(S.phase==='fine'&&prev.fase!=='fine'){
       const top=Math.max(...S.points);
       S.points[groupOf(mySeat,S)]===top?SND.finePro():SND.fineContro();
@@ -611,9 +662,13 @@ function suoniDiff(){
     return;
   }
   const t=S.table.length;
-  if(t>prev.tavolo) SND.giocata();
-  if(prev.tavolo===S.n && t===0 && S.last){ S.last.seat===mySeat?SND.presaMia():SND.presa(); }
-  if(S.phase==='gioco'&&S.turn===mySeat&&prev.turn!==mySeat&&t<S.n) SND.tuoTurno();
+  if(t>prev.tavolo){ SND.giocata(t-1); vibra(9); }
+  if(prev.tavolo===S.n && t===0 && S.last){
+    const mia=S.last.seat===mySeat;
+    mia?SND.presaMia(S.last.pts):SND.presa(S.last.pts);
+    vibra(mia?[0,20,45,30]:16);
+  }
+  if(S.phase==='gioco'&&S.turn===mySeat&&prev.turn!==mySeat&&t<S.n){ SND.tuoTurno(); vibra(14); }
   if(S.phase==='fine'&&prev.fase!=='fine'){
     const top=Math.max(...S.points);
     S.points[groupOf(mySeat,S)]===top?SND.finePro():SND.fineContro();
@@ -625,6 +680,73 @@ function suoniDiff(){
 /* ================= animazioni ================= */
 const RM=matchMedia('(prefers-reduced-motion:reduce)').matches;
 let anim={len:0,mano:0,punti:null}, daDove=null;
+
+/* --- che cosa è davvero nuovo ---
+   Le viste rifanno #app via innerHTML a ogni messaggio di stato, quindi
+   ogni animazione d'entrata ripartirebbe da capo su nodi nuovi: la mano
+   si ridistribuiva a ogni mossa altrui. Qui si confronta con l'ultima
+   cosa disegnata e si marca solo la differenza. */
+let visto={mano:-1,carte:[],board:[],posti:[]};
+const chiave=c=>c.s+':'+c.r;
+function novita(ora,prima){
+  const resto=prima.slice();
+  return ora.map(k=>{ const j=resto.indexOf(k); if(j>=0){resto.splice(j,1);return false;} return true; });
+}
+function azzeraViste(){ visto={mano:-1,carte:[],board:[],posti:[]}; scelta=null; }
+
+/* --- ritmo della presa ---
+   Le carte si contano una alla volta, e quanto vale il giro allunga
+   l'attesa prima di sapere chi prende. Il mazziere calcola lo stesso
+   ritmo per decidere quando cambiare stato: prima cambiava a 1700ms
+   fissi e tagliava la raccolta, che finisce fra 1755 e 1935. */
+const VIA=380;
+function ritmoPresa(st){
+  const tappe=[]; let t=VIA;
+  st.table.forEach(p=>{ tappe.push(t); t+=pts(p.c)?250:140; });
+  const g=st.table.reduce((a,p)=>a+pts(p.c),0);
+  const sospeso=g>=20?280:g>=10?150:0;
+  const battuta=t+sospeso;
+  const raccolta=battuta+380;
+  return {tappe,battuta,raccolta,punti:g,fine:raccolta+480+(st.table.length-1)*40+90};
+}
+function contaPresa(rit){
+  const wraps=[...document.querySelectorAll('.playedwrap')];
+  rit.tappe.forEach((t,i)=>setTimeout(()=>{
+    const el=wraps[i], carta=S&&S.table&&S.table[i];
+    if(!el||!carta) return;
+    const v=pts(carta.c);
+    el.classList.add('conta');
+    setTimeout(()=>el.classList.remove('conta'),v?420:250);
+    const c=el.querySelector('.card');
+    if(!RM&&c) c.animate([{transform:'none'},{transform:'translateY(-9px) scale(1.06)'},{transform:'none'}],
+      {duration:v?330:230,easing:'cubic-bezier(.3,1.5,.4,1)'});
+    if(v) valoreCarta(el,v);
+    SND.conta(i,v);
+  },t));
+}
+function valoreCarta(el,v){
+  if(RM) return;
+  const s=document.createElement('span'); s.className='valcarta'; s.textContent='+'+v;
+  el.appendChild(s);
+  s.animate([{transform:'translate(-50%,12px) scale(.6)',opacity:0},
+             {transform:'translate(-50%,-12px) scale(1.18)',opacity:1,offset:.34},
+             {transform:'translate(-50%,-38px) scale(1)',opacity:0}],
+            {duration:820,easing:'cubic-bezier(.2,.9,.3,1)'}).onfinish=()=>s.remove();
+}
+/* Il totale non salta al valore nuovo: ci arriva. */
+function salePunteggio(el,da,a){
+  if(!el) return;
+  if(RM||da===a){ el.textContent=a; return; }
+  const t0=performance.now(), dur=520;
+  el.textContent=da;
+  const passo=now=>{
+    const k=Math.min(1,(now-t0)/dur), e=1-Math.pow(1-k,3);
+    el.textContent=Math.round(da+(a-da)*e);
+    if(k<1) requestAnimationFrame(passo);
+    else { el.textContent=a; el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
+  };
+  requestAnimationFrame(passo);
+}
 const rectOf=s=>{const e=document.querySelector(s);return e?e.getBoundingClientRect():null;};
 const centro=r=>({x:r.left+r.width/2,y:r.top+r.height/2});
 
@@ -682,11 +804,11 @@ function volaPunti(gr,n){
              {transform:'translate(-50%,-10px) scale(1.15)',opacity:1,offset:.35},
              {transform:'translate(-50%,-34px) scale(1)',opacity:0}],
             {duration:1100,easing:'cubic-bezier(.2,.9,.3,1)'}).onfinish=()=>s.remove();
-  const v=sc.querySelector('.val'); if(v){v.classList.remove('bump');void v.offsetWidth;v.classList.add('bump');}
 }
 
 /* ================= viste ================= */
 function paint(err){
+  clearTimeout(attesaInvio);
   if(!S && !code) return lobby(err);
   if(!S) return attesaConn(err);
   if(S.phase==='attesa') return stanza();
@@ -771,12 +893,14 @@ function attesaConn(err){
 
 function stanza(){
   const k=S.seats.length, sq=S.teams&&k%2===0&&k>=4, liberi=6-k;
+  const idPosti=S.seats.map(x=>x.id), nuoviPosti=novita(idPosti,visto.posti);
+  visto={mano:-1,carte:[],board:[],posti:idPosti}; scelta=null;
   $('app').innerHTML=`
   <div class="topbar">${conn()}<span class="sp"></span>${mutoBtn()}<button id="rg" title="Regole" aria-label="Regole">${ICO.aiuto}</button><button id="x">Esci</button></div>
   <div class="roomcode">${S.code}</div>
   <div id="qr"></div>
   <p class="lede" style="font-size:14px">Fai inquadrare il codice, o detta le quattro lettere.</p>
-  <ul class="seatlist">${S.seats.map((s,i)=>`<li class="${s.id===me.id?'me':''}"><span class="n">${i+1}</span>${s.name}${s.id===me.id?' · tu':''}${S.albo&&S.albo[s.id]?`<span class="team">${S.albo[s.id]} man${S.albo[s.id]>1?'i':'o'} vint${S.albo[s.id]>1?'e':'a'}</span>`:(sq?`<span class="team">Squadra ${i%2?'B':'A'}</span>`:'')}</li>`).join('')
+  <ul class="seatlist">${S.seats.map((s,i)=>`<li class="${s.id===me.id?'me':''}${nuoviPosti[i]?' nuovo':''}"><span class="n">${i+1}</span>${s.name}${s.id===me.id?' · tu':''}${S.albo&&S.albo[s.id]?`<span class="team">${S.albo[s.id]} man${S.albo[s.id]>1?'i':'o'} vint${S.albo[s.id]>1?'e':'a'}</span>`:(sq?`<span class="team">Squadra ${i%2?'B':'A'}</span>`:'')}</li>`).join('')
     +(liberi>0?`<li class="empty"><span class="n">+</span>${liberi} post${liberi>1?'i':'o'} liber${liberi>1?'i':'o'}</li>`:'')}</ul>
   ${isHost?`
     <div class="seg" style="margin-top:12px" id="gm">
@@ -799,7 +923,9 @@ function stanza(){
   if($('via'))$('via').onclick=()=>send({t:'start'});
   if($('sq'))document.querySelectorAll('#sq button').forEach(b=>b.onclick=()=>send({t:'squadre',v:+b.dataset.v}));
   if($('gm'))document.querySelectorAll('#gm button').forEach(b=>b.onclick=()=>send({t:'gioco',v:b.dataset.v}));
-  if($('link'))$('link').onclick=()=>{navigator.clipboard?.writeText(linkTavolo());$('link').textContent='Link copiato ✓';};
+  if($('link'))$('link').onclick=()=>{ navigator.clipboard?.writeText(linkTavolo());
+    const b=$('link'); b.textContent='Link copiato'; vibra(12);
+    setTimeout(()=>{ if($('link')===b) b.textContent='Copia il link'; },1800); };
   try{ if(window.QRCode) new QRCode($('qr'),{text:linkTavolo(),width:172,height:172,
       colorDark:'#102A22',colorLight:'#F3E7CD',correctLevel:QRCode.CorrectLevel.M}); }
   catch(e){ $('qr').innerHTML='<span class="hint">QR non disponibile, usa il codice</span>'; }
@@ -826,6 +952,11 @@ function tavolo(){
     : unaRiga);
   rad.setProperty('--cw','clamp(84px,min(32vw,14.5vh),140px)');
 
+  const chiaviMano=hand.map(chiave);
+  const manoNuova=S.mano!==visto.mano;
+  const carteNuove=manoNuova?chiaviMano.map(()=>true):novita(chiaviMano,visto.carte);
+  visto={mano:S.mano,carte:chiaviMano,board:[],posti:visto.posti};
+
   let barra;
   if(fin){
     let t; if(vinc.length>1) t=`Pari a <b>${top}</b>`;
@@ -847,6 +978,7 @@ function tavolo(){
     <span class="brisc">Briscola <b style="color:${SUITS[S.trumpSuit].col}">${SUITS[S.trumpSuit].nome}</b></span>
     ${mutoBtn()}<button id="cl" title="Punteggi" aria-label="Punteggi">${ICO.punti}</button><button id="rg" title="Regole" aria-label="Regole">${ICO.aiuto}</button><button id="x" title="Esci dal tavolo" aria-label="Esci dal tavolo">${ICO.esci}</button></div>
   <div class="opps">${opps.map(i=>`<span class="opp ${turn===i?'turn':''}" data-seat="${i}">
+    <span class="att" aria-hidden="true"></span>
     <span>${nomeDi(i)}${S.teams&&groupOf(i,S)===gm?', con te':''}</span>
     ${S.tr&&S.tr[i]?`<b>${S.tr[i]}</b>`:''}
     <span class="mini">${Array(((S.hands&&S.hands[i])||[]).length).fill('<i></i>').join('')}</span></span>`).join('')}</div>
@@ -863,42 +995,54 @@ function tavolo(){
       <div class="lbl">${eti(g)}</div><div class="val">${S.points[g]}</div></div>`).join('')}</div>
   ${fin?(isHost?'<button class="btn" id="ri">Un\'altra mano</button><button class="btn ghost" id="tn">Torna al tavolo</button>'
                :'<p class="hint" style="text-align:center">Il mazziere può dare di nuovo.</p>')
-       :`<div class="hand">${hand.map((c,i)=>`<button class="slot ${turn===mySeat?'playable':''}" data-i="${i}"
+       :`<div class="hand">${hand.map((c,i)=>`<button class="slot ${turn===mySeat?'playable':''}${carteNuove[i]?' nuova':''}" data-i="${i}"
           ${turn===mySeat&&S.table.length<n?'':'disabled'}>${c.s===S.trumpSuit?'<span class="brisc-flag"></span>':''}${cardHTML(c)}<span class="tasto">${i+1}</span></button>`).join('')}</div>
         <p class="tastiera">Tasti 1 2 3 per calare, M per i suoni, ? per le regole</p>`}`;
   $('x').onclick=esci; $('rg').onclick=regole; $('cl').onclick=classifica; legaMuto();
   if($('ri'))$('ri').onclick=()=>send({t:'rematch'});
   if($('tn'))$('tn').onclick=()=>send({t:'stanza'});
-  document.querySelectorAll('.slot').forEach(b=>b.onclick=()=>{
-    if(b.disabled) return;
+  legaCarte(b=>{
     const c=b.querySelector('.card');
     daDove=c?c.getBoundingClientRect():null;
-    b.classList.add('gone');
+    b.classList.add('gone'); b.classList.remove('premuta');
     if(c&&!RM) c.animate([{transform:'translateY(-16px) scale(1.07)',opacity:1},
       {transform:'translateY(-52px) scale(.86)',opacity:0}],{duration:200,easing:'ease-in',fill:'forwards'});
     document.querySelectorAll('.slot').forEach(o=>o.disabled=true);
+    inVolo(); vibra(11);
     setTimeout(()=>send({t:'play',i:+b.dataset.i}),110);
   });
 
-  // regia: lancio, battito sulla carta che prende, raccolta verso il vincitore
+  // Regia della presa: la carta si posa, si contano i punti una carta alla
+  // volta, si scopre chi prende, si raccoglie. Il mazziere cambia stato solo
+  // quando è finito tutto (ritmoPresa vale per lui come per gli altri).
   const len=S.table.length, nuovaMano=S.mano!==anim.mano;
-  if(len>anim.len&&!nuovaMano) requestAnimationFrame(lancia);
-  else if(len&&nuovaMano) requestAnimationFrame(lancia);
+  if((len>anim.len&&!nuovaMano)||(len&&nuovaMano)) requestAnimationFrame(lancia);
   if(pieno&&!fin){
-    setTimeout(()=>battito(best),260);
-    setTimeout(()=>raccogli(best),1150);
-    if(S.table.reduce((a,p)=>a+pts(p.c),0)>=10) setTimeout(scossa,300);
+    const rit=ritmoPresa(S);
+    contaPresa(rit);
+    setTimeout(()=>battito(best),rit.battuta);
+    setTimeout(()=>raccogli(best),rit.raccolta);
+    if(rit.punti>=20) setTimeout(scossa,rit.battuta);
   }
   const pStr=S.points.join();
   if(anim.punti&&pStr!==anim.punti&&!nuovaMano){
     const vecchi=anim.punti.split(',').map(Number);
-    S.points.forEach((p,g)=>volaPunti(g,p-vecchi[g]));
+    const val=document.querySelectorAll('.sc .val');
+    S.points.forEach((p,g)=>{ volaPunti(g,p-vecchi[g]); salePunteggio(val[g],vecchi[g],p); });
   }
   anim={len,mano:S.mano,punti:pStr};
 }
 
+let scelta=null;
 function tavoloScopa(){
   const n=S.n, hand=(S.hands&&S.hands[mySeat])||[], turn=S.turn, fin=S.phase==='fine';
+  // la scelta in corso vale solo finché è ancora il tuo turno con quella carta
+  if(scelta&&(turn!==mySeat||fin||!hand[scelta.i]||chiave(hand[scelta.i])!==scelta.carta)) scelta=null;
+  if(scelta){
+    scelta.opts=prese(S.board,hand[scelta.i].r);
+    if(scelta.opts.length<2) scelta=null;
+    else if(scelta.k>=scelta.opts.length) scelta.k=0;
+  }
   const gm=groupOf(mySeat,S), G=nGroups(S);
   const opps=[]; for(let k=1;k<n;k++)opps.push((mySeat+k)%n);
   const top=Math.max(...S.points), vinc=S.points.map((p,g)=>p===top?g:-1).filter(g=>g>=0);
@@ -910,6 +1054,14 @@ function tavoloScopa(){
     : b>4 ? `clamp(34px,min(calc(25vw - 20px),calc(15vh - ${58+folta}px)),88px)`
     : `clamp(44px,min(calc(25vw - 20px),calc(28vh - ${117+folta}px)),108px)`);
   document.documentElement.style.setProperty('--cw','clamp(84px,min(32vw,14.5vh),140px)');
+
+  const chiaviBoard=S.board.map(chiave);
+  const manoNuova=S.mano!==visto.mano;
+  const chiaviMano=hand.map(chiave);
+  const carteNuove=manoNuova?chiaviMano.map(()=>true):novita(chiaviMano,visto.carte);
+  const boardNuove=manoNuova?chiaviBoard.map(()=>true):novita(chiaviBoard,visto.board);
+  visto={mano:S.mano,carte:chiaviMano,board:chiaviBoard,posti:visto.posti};
+  const inSel=scelta?scelta.opts[scelta.k].idx:[];
 
   let barra;
   if(fin){
@@ -930,15 +1082,16 @@ function tavoloScopa(){
     <span class="brisc">Scopa</span>
     ${mutoBtn()}<button id="cl" title="Punteggi" aria-label="Punteggi">${ICO.punti}</button><button id="rg" title="Regole" aria-label="Regole">${ICO.aiuto}</button><button id="x" title="Esci dal tavolo" aria-label="Esci dal tavolo">${ICO.esci}</button></div>
   <div class="opps">${opps.map(i=>`<span class="opp ${turn===i?'turn':''}" data-seat="${i}">
+    <span class="att" aria-hidden="true"></span>
     <span>${nomeDi(i)}${S.teams&&groupOf(i,S)===gm?', con te':''}</span>
     <b>${(S.taken[i]||[]).length}</b>${S.scope[i]?`<span style="color:var(--oro)">${'★'.repeat(Math.min(S.scope[i],3))}</span>`:''}</span>`).join('')}</div>
   <div class="felt">
     <div class="deckbox"><span class="cnt">${S.deck.length}</span>
       ${S.deck.length?'<span class="backcard"></span>':'<span style="font-size:11px;color:var(--dim)">mazzo finito</span>'}</div>
     <div class="board" id="bd">${S.board.length
-      ? S.board.map((c,i)=>`<span class="bc" data-b="${i}">${cardHTML(c)}</span>`).join('')
+      ? S.board.map((c,i)=>`<span class="bc${inSel.includes(i)?' sel':''}${boardNuove[i]?' nuova':''}" data-b="${i}">${cardHTML(c)}</span>`).join('')
       : '<span class="vuoto">tavolo pulito</span>'}</div>
-    ${barra}
+    ${scelta?barraScelta(hand[scelta.i]):barra}
     ${!fin&&S.mossa?`<p class="presi">${S.mossa.seat===mySeat?'Hai':nomeDi(S.mossa.seat)+' ha'} ${S.mossa.presi?`preso ${S.mossa.presi} cart${S.mossa.presi>1?'e':'a'}`:'lasciato '+nomeCarta(S.mossa.c)}</p>`:''}
   </div>
   <div class="scores">${Array.from({length:G},(_,g)=>`
@@ -946,31 +1099,64 @@ function tavoloScopa(){
       <div class="lbl">${eti(g)}</div><div class="val">${S.points[g]}</div></div>`).join('')}</div>
   ${fin?(isHost?'<button class="btn" id="ri">Un\'altra mano</button><button class="btn ghost" id="tn">Torna al tavolo</button>'
                :'<p class="hint" style="text-align:center">Il mazziere può dare di nuovo.</p>')
-       :`<div class="hand">${hand.map((c,i)=>`<button class="slot ${turn===mySeat?'playable':''}" data-i="${i}"
+       :`<div class="hand">${hand.map((c,i)=>`<button class="slot ${turn===mySeat?'playable':''}${
+          carteNuove[i]?' nuova':''}${scelta&&scelta.i===i?' scelta':''}" data-i="${i}"
           ${turn===mySeat?'':'disabled'}>${cardHTML(c)}<span class="tasto">${i+1}</span></button>`).join('')}</div>
         <p class="tastiera">Tasti 1 2 3 per calare, M per i suoni, ? per le regole</p>`}`;
   $('x').onclick=esci; $('rg').onclick=regole; $('cl').onclick=classifica; legaMuto();
   if($('ri'))$('ri').onclick=()=>send({t:'rematch'});
   if($('tn'))$('tn').onclick=()=>send({t:'stanza'});
-  document.querySelectorAll('.slot').forEach(b=>b.onclick=()=>{
-    if(b.disabled) return;
+  legaCarte(b=>{
     const i=+b.dataset.i, c=hand[i], opts=prese(S.board,c.r);
-    if(opts.length>1) return scegliPresa(c,i,opts);
-    const el=b.querySelector('.card'); daDove=el?el.getBoundingClientRect():null;
-    b.classList.add('gone');
-    if(el&&!RM) el.animate([{transform:'translateY(-16px) scale(1.07)',opacity:1},
-      {transform:'translateY(-48px) scale(.86)',opacity:0}],{duration:200,easing:'ease-in',fill:'forwards'});
-    document.querySelectorAll('.slot').forEach(o=>o.disabled=true);
-    setTimeout(()=>send({t:'play',i}),110);
+    if(opts.length>1){ scelta={i,carta:chiave(c),opts,k:0}; vibra(10); return paint(); }
+    cala(b,i,0);
   });
+  document.querySelectorAll('.bc').forEach(el=>el.onclick=()=>{
+    if(!scelta) return;
+    const j=+el.dataset.b;
+    const altra=scelta.opts.findIndex((o,x)=>x!==scelta.k&&o.idx.includes(j));
+    if(altra>=0){ scelta.k=altra; vibra(8); return paint(); }
+    if(scelta.opts[scelta.k].idx.includes(j)) confermaScelta();
+  });
+  if($('sc-si'))$('sc-si').onclick=confermaScelta;
+  if($('sc-no'))$('sc-no').onclick=()=>{ scelta=null; paint(); };
+  if($('sc-gi'))$('sc-gi').onclick=()=>{ scelta.k=(scelta.k+1)%scelta.opts.length; vibra(8); paint(); };
   // giostra
   const nuovaMano=S.mano!==anim.mano;
   if(S.mossa&&!nuovaMano&&S.mossa!==anim.mossa){
-    if(S.mossa.presi){ (S.mossa.seat===mySeat?SND.presaMia:SND.presa)(); if(S.mossa.scopa){scossa();SND.finePro();} }
-    else { SND.giocata(); requestAnimationFrame(()=>{
-      const b=[...document.querySelectorAll('.bc')].pop(); if(b) lanciaSu(b,S.mossa.seat); }); }
+    const mia=S.mossa.seat===mySeat;
+    if(S.mossa.presi){
+      (mia?SND.presaMia:SND.presa)(S.mossa.presi>2?12:0);
+      vibra(mia?[0,20,45,30]:16);
+      if(S.mossa.scopa){ scossa(); SND.finePro(); vibra([0,25,60,25,60,35]); }
+    } else { SND.giocata(S.board.length-1); vibra(9);
+      requestAnimationFrame(()=>{
+        const b=[...document.querySelectorAll('.bc')].pop(); if(b) lanciaSu(b,S.mossa.seat); }); }
   }
   anim={len:0,mano:S.mano,punti:S.points.join(),mossa:S.mossa};
+}
+/* La carta si alza al pointerdown, non al click: su telefono :active non è
+   affidabile e la risposta arrivava dopo il tocco invece che durante. */
+/* Se lo stato non torna subito, si dice che la carta è partita: prima la
+   mano restava vuota e non si capiva se il tocco fosse arrivato. */
+let attesaInvio=null;
+function inVolo(){
+  clearTimeout(attesaInvio);
+  attesaInvio=setTimeout(()=>{
+    const b=document.querySelector('.turnbar');
+    if(b){ b.className='turnbar inviando'; b.innerHTML='<span class="spin"></span>Mando la carta…'; }
+  },450);
+}
+function legaCarte(alTocco){
+  document.querySelectorAll('.slot').forEach(b=>{
+    b.addEventListener('pointerdown',()=>{
+      if(b.disabled||!b.classList.contains('playable')) return;
+      b.classList.add('premuta'); vibra(8);
+    });
+    ['pointerup','pointercancel','pointerleave'].forEach(e=>
+      b.addEventListener(e,()=>b.classList.remove('premuta')));
+    b.onclick=()=>{ if(b.disabled) return; alTocco(b); };
+  });
 }
 function lanciaSu(el,seat){
   if(RM) return;
@@ -985,16 +1171,33 @@ function lanciaSu(el,seat){
     {transform:'translate(0,0) scale(1.07)',opacity:1,offset:.82},
     {transform:'none',opacity:1}],{duration:430,easing:'cubic-bezier(.25,.9,.3,1)'});
 }
-function scegliPresa(c,i,opts){
-  pannello(`<h2>Cosa prendi?</h2>
-  <p style="color:var(--dim);font-size:13.5px">Cali ${nomeCarta(c)}. Puoi portarti via una di queste combinazioni.</p>
-  <div class="opzioni">${opts.map((o,k)=>`<button class="opz" data-k="${k}">
-    <span class="mini2">${o.idx.map(j=>cardHTML(S.board[j])).join('')}</span>
-    <span>${o.idx.length>1?o.idx.map(j=>S.board[j].r).join(' + ')+' = '+c.r:'carta uguale'}</span></button>`).join('')}</div>`);
-  document.querySelectorAll('.opz').forEach(b=>b.onclick=()=>{
-    chiudi(); document.querySelectorAll('.slot').forEach(o=>o.disabled=true);
-    send({t:'play',i,o:+b.dataset.k});
-  });
+/* La presa si sceglie sul tavolo: la carta in mano resta alzata, sul tavolo
+   si accende la combinazione, e si conferma. Prima era un pannello modale
+   che copriva proprio le carte su cui stavi decidendo. */
+function barraScelta(c){
+  const o=scelta.opts[scelta.k], tot=scelta.opts.length;
+  const descr=o.idx.length>1?o.idx.map(j=>S.board[j].r).join(' + '):'la carta uguale';
+  return `<div class="scegli">
+    <p>Cali ${nomeCarta(c)} e prendi <em>${descr}</em></p>
+    ${tot>1?`<button id="sc-gi">Cambia ${scelta.k+1}/${tot}</button>`:''}
+    <button id="sc-no">Annulla</button>
+    <button class="si" id="sc-si">Prendi</button></div>`;
+}
+function confermaScelta(){
+  if(!scelta) return;
+  const i=scelta.i, k=scelta.k;
+  const b=document.querySelector('.slot[data-i="'+i+'"]');
+  scelta=null;
+  if(b) cala(b,i,k); else { send({t:'play',i,o:k}); }
+}
+function cala(b,i,o){
+  const el=b.querySelector('.card'); daDove=el?el.getBoundingClientRect():null;
+  b.classList.add('gone'); b.classList.remove('premuta');
+  if(el&&!RM) el.animate([{transform:'translateY(-16px) scale(1.07)',opacity:1},
+    {transform:'translateY(-48px) scale(.86)',opacity:0}],{duration:200,easing:'ease-in',fill:'forwards'});
+  document.querySelectorAll('.slot').forEach(x=>x.disabled=true);
+  inVolo(); vibra(11);
+  setTimeout(()=>send({t:'play',i,o:o||0}),110);
 }
 
 /* ================= pannelli ================= */
@@ -1075,12 +1278,20 @@ if('serviceWorker' in navigator && location.protocol==='https:')
 /* ================= tastiera (desktop) ================= */
 window.addEventListener('keydown',e=>{
   if(e.target.tagName==='INPUT') return;
-  if(e.key==='Escape'){ if($('ov').innerHTML) chiudi(); return; }
+  if(e.key==='Escape'){
+    if($('ov').innerHTML) return chiudi();
+    if(scelta){ scelta=null; return paint(); }
+    return;
+  }
+  if(typeof scelta!=='undefined'&&scelta){
+    if(e.key==='Enter'){ e.preventDefault(); return confermaScelta(); }
+    if(e.key==='Tab'){ e.preventDefault(); scelta.k=(scelta.k+1)%scelta.opts.length; return paint(); }
+    if(/^[1-9]$/.test(e.key)){ const k=+e.key-1;
+      if(k<scelta.opts.length){ scelta.k=k; return paint(); } return; }
+  }
   if(e.key==='m'||e.key==='M'){ const b=$('mu'); if(b) b.click(); return; }
   if(e.key==='?'){ const b=$('rg'); if(b) b.click(); return; }
   if(/^[1-9]$/.test(e.key)){
-    const opz=document.querySelectorAll('.opz');
-    if(opz.length){ const o=opz[+e.key-1]; if(o) o.click(); return; }
     const s=document.querySelectorAll('.slot');
     const b=s[+e.key-1]; if(b&&!b.disabled) b.click();
   }

@@ -140,6 +140,31 @@ Toccando questi valori, rimisurare: basta caricare `index.html` in un browser he
 piazzare uno stato finto e controllare che `scrollHeight` non superi `innerHeight` per
 ogni numero di giocatori e per le varie misure del tavolo di scopa.
 
+## Animazioni e ritmo
+
+Le viste rifanno `#app` via `innerHTML` a ogni messaggio di stato, quindi **ogni
+animazione d'entrata ripartirebbe da capo su nodi nuovi**: la mano si ridistribuiva a ogni
+mossa altrui. Le entrate sono legate a una classe (`.slot.nuova`, `.bc.nuova`, `.seatlist
+li.nuovo`) che il JS mette solo su quello che è cambiato davvero, confrontando con `visto`
+tramite `novita()`. Se aggiungi un'animazione d'entrata, legala a una classe allo stesso
+modo, o ripartirà a ogni stato.
+
+`ritmoPresa(st)` calcola la scaletta della presa: quando si accende ogni carta durante il
+conteggio, quando batte la carta che vince, quando parte la raccolta, quando è finito
+tutto. **La usano sia il client per animare sia il mazziere in `autoResolve()` per sapere
+quando pubblicare lo stato nuovo.** Se le due cose si scollano l'animazione viene tagliata
+a metà, che è esattamente quello che succedeva coi 1700 ms fissi contro una raccolta che
+finiva fra 1755 e 1935.
+
+Il resto segue tre regole: le carte si contano una alla volta e ognuna suona un semitono
+più su della precedente (`SND.conta`, scala in `SCALA`); i totali non saltano al valore
+nuovo ma ci arrivano (`salePunteggio`); quanto vale il giro allunga l'attesa prima di
+scoprire chi prende, e la scossa dello schermo è riservata ai giri da venti punti in su e
+alle scope.
+
+`vibra()` segue il tasto del muto, perché quel tasto dice "silenzia", non "silenzia solo
+l'audio".
+
 ## Test
 
 `harness.js` monta più client jsdom con un broker MQTT finto in-process e li fa giocare
