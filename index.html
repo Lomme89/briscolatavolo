@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Briscola al tavolo</title>
+<style>
+:root{
+  --felt:#1C4034; --felt-deep:#102A22; --felt-line:#2E5A4A;
+  --card:#F3E7CD; --card-edge:#D9C79E; --ink:#241A0F;
+  --oro:#D69A24; --dim:#9DBBAC;
+  --display:"Palatino Linotype","Book Antiqua",Palatino,Georgia,serif;
+  --ui:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{margin:0;font-family:var(--ui);color:#EFE7D6;min-height:100dvh;overscroll-behavior:none;
+  background:radial-gradient(120% 80% at 50% 0%,#26523F 0%,var(--felt) 45%,var(--felt-deep) 100%)}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+.wrap{max-width:560px;margin:0 auto;padding:16px 14px 24px;min-height:100dvh;display:flex;flex-direction:column}
+.brand{text-align:center;margin:22px 0 6px}
+.brand h1{font-family:var(--display);font-size:clamp(36px,12vw,54px);line-height:.92;margin:0;font-weight:400;color:#F6EEDC}
+.brand h1 em{display:block;font-size:.42em;font-style:normal;letter-spacing:.34em;text-transform:uppercase;
+  color:var(--oro);margin-top:12px;padding-left:.34em}
+.rule{height:1px;background:linear-gradient(90deg,transparent,var(--felt-line),transparent);margin:20px 0}
+.lede{color:var(--dim);text-align:center;font-size:15px;line-height:1.5;margin:0 auto;max-width:34ch}
+.panel{background:rgba(0,0,0,.18);border:1px solid var(--felt-line);border-radius:14px;padding:16px;margin-top:16px}
+label.f{display:block;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin-bottom:8px}
+input[type=text]{width:100%;padding:13px 14px;border-radius:10px;border:1px solid var(--felt-line);
+  background:rgba(0,0,0,.25);color:#F6EEDC;font-size:17px;font-family:var(--ui)}
+input[type=text]:focus{outline:2px solid var(--oro);outline-offset:1px}
+.seg{display:flex;gap:8px}
+.seg button{flex:1;padding:11px 0;border:1px solid var(--felt-line);border-radius:10px;background:rgba(0,0,0,.2);
+  color:var(--dim);font-size:14px}
+.seg button[aria-pressed=true]{background:var(--oro);color:#241A0F;border-color:var(--oro);font-weight:600}
+.btn{display:block;width:100%;padding:14px;border-radius:11px;background:var(--oro);color:#241A0F;
+  font-weight:700;font-size:16px;margin-top:14px}
+.btn.ghost{background:transparent;border:1px solid var(--felt-line);color:#EFE7D6;font-weight:600}
+.btn[disabled]{opacity:.45}
+.code-in{text-align:center;letter-spacing:.5em;text-transform:uppercase;font-size:26px;font-family:var(--display)}
+.err{color:#F0A99F;font-size:14px;margin-top:10px;min-height:1.2em}
+.hint{color:var(--dim);font-size:13px;line-height:1.5;margin-top:10px}
+.roomcode{font-family:var(--display);font-size:46px;letter-spacing:.22em;color:var(--oro);text-align:center;
+  margin:4px 0 2px;padding-left:.22em}
+.seatlist{list-style:none;margin:14px 0 0;padding:0;display:grid;gap:8px}
+.seatlist li{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:10px;
+  background:rgba(0,0,0,.2);border:1px solid var(--felt-line);font-size:15px}
+.seatlist li .n{width:22px;height:22px;border-radius:50%;background:var(--felt-line);display:grid;
+  place-items:center;font-size:11px;flex:none}
+.seatlist li.me{border-color:var(--oro)}
+.seatlist li .team{margin-left:auto;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.seatlist li.empty{color:var(--dim);font-style:italic}
+.topbar{display:flex;align-items:center;gap:10px;font-size:12px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--dim);padding-bottom:10px}
+.topbar .sp{margin-left:auto}
+.topbar button{color:var(--dim);text-decoration:underline;text-underline-offset:3px;font-size:12px}
+.dot{width:7px;height:7px;border-radius:50%;background:#C0563F;flex:none}
+.dot.on{background:#5FBF8A}
+.opps{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:10px}
+.opp{display:flex;align-items:center;gap:7px;padding:7px 11px;border-radius:999px;background:rgba(0,0,0,.22);
+  border:1px solid transparent;font-size:13px}
+.opp.turn{border-color:var(--oro);box-shadow:0 0 0 3px rgba(214,154,36,.14)}
+.opp .mini{display:flex}
+.opp .mini i{width:9px;height:14px;border-radius:2px;background:linear-gradient(160deg,#8E2A24,#5E1A16);
+  border:1px solid #40100D;margin-left:-3px;display:block}
+.opp .mini i:first-child{margin-left:0}
+.felt{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:14px;
+  position:relative;padding:10px 0;min-height:210px}
+.felt::before{content:"";position:absolute;inset:0;border-radius:20px;border:1px solid rgba(255,255,255,.05);
+  background:radial-gradient(60% 50% at 50% 45%,rgba(255,255,255,.05),transparent 70%)}
+.played{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;position:relative;min-height:118px;align-items:center}
+.playedwrap{display:flex;flex-direction:column;align-items:center;gap:5px}
+.playedwrap small{font-size:11px;color:var(--dim);max-width:76px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.msg{font-family:var(--display);font-size:19px;text-align:center;position:relative;padding:0 12px}
+.msg b{color:var(--oro);font-weight:400}
+.deckbox{position:absolute;right:2px;top:6px;display:flex;align-items:center;gap:2px}
+.deckbox .cnt{font-size:11px;color:var(--dim);margin-right:6px}
+.backcard{width:46px;height:70px;border-radius:6px;border:1px solid #40100D;
+  background:repeating-linear-gradient(45deg,rgba(0,0,0,.16) 0 4px,transparent 4px 8px),
+  linear-gradient(160deg,#8E2A24,#5E1A16);box-shadow:0 2px 6px rgba(0,0,0,.35)}
+.trumpslot{transform:rotate(90deg);margin-left:-16px}
+.hand{display:flex;gap:9px;justify-content:center;padding-top:14px;min-height:126px;align-items:flex-end}
+.slot{padding:0;border-radius:9px;transition:transform .16s ease}
+.slot:disabled{opacity:.5}
+.slot:not(:disabled):active{transform:translateY(-8px)}
+.slot.playable:not(:disabled){box-shadow:0 0 0 2px rgba(214,154,36,.5),0 6px 14px rgba(0,0,0,.35);border-radius:9px}
+.card{width:74px;height:112px;border-radius:8px;background:var(--card);border:1px solid var(--card-edge);
+  box-shadow:0 3px 9px rgba(0,0,0,.32);position:relative;overflow:hidden;display:block;animation:in .22s ease both}
+.card.sm{width:62px;height:94px}
+.card::after{content:"";position:absolute;inset:3px;border:1px solid rgba(36,26,15,.16);border-radius:5px}
+.card .rk{position:absolute;top:3px;left:5px;font-family:var(--display);font-size:15px;font-weight:700;line-height:1;z-index:2}
+.card .rk.b{top:auto;bottom:3px;left:auto;right:5px;transform:rotate(180deg)}
+.card .pips{position:absolute;inset:14px 9px;display:grid;place-items:center;gap:1px}
+.card .pips svg{width:100%;height:100%;max-height:26px}
+.card.fig .pips svg{max-height:100%}
+.card .figlbl{position:absolute;bottom:8px;left:0;right:0;text-align:center;font-family:var(--display);
+  font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:rgba(36,26,15,.6)}
+.card.trump{outline:2px solid var(--oro);outline-offset:-2px}
+@keyframes in{from{opacity:0;transform:translateY(6px) scale(.96)}to{opacity:1;transform:none}}
+.scores{display:flex;gap:8px;justify-content:center;margin-top:12px}
+.sc{flex:1;max-width:170px;text-align:center;padding:9px;border-radius:10px;background:rgba(0,0,0,.2);
+  border:1px solid var(--felt-line)}
+.sc .lbl{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.sc .val{font-family:var(--display);font-size:26px;color:var(--oro);line-height:1.2}
+.sc.win{border-color:var(--oro)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"><p class="lede" style="margin-top:40vh">Collegamento…</p></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.10.1/mqtt.min.js"></script>
+<script>
+/* ================= carte ================= */
+const SUITS=[{id:'denari',nome:'Denari',col:'#D69A24'},{id:'coppe',nome:'Coppe',col:'#B12A22'},
+             {id:'spade',nome:'Spade',col:'#2B5F86'},{id:'bastoni',nome:'Bastoni',col:'#2C7A50'}];
+const PT={1:11,3:10,10:4,9:3,8:2}, STR={1:10,3:9,10:8,9:7,8:6,7:5,6:4,5:3,4:2,2:1};
+const RK={1:'A',8:'F',9:'C',10:'R'}, FIG={8:'Fante',9:'Cavallo',10:'Re'};
+const pts=c=>PT[c.r]||0, rkl=r=>RK[r]||String(r);
+function suitSVG(s,col){const S={
+ denari:`<circle cx="50" cy="50" r="30" fill="none" stroke="${col}" stroke-width="6"/><circle cx="50" cy="50" r="15" fill="${col}"/><g stroke="${col}" stroke-width="4" stroke-linecap="round"><path d="M50 8v10M50 82v10M8 50h10M82 50h10M20 20l7 7M73 73l7 7M80 20l-7 7M27 73l-7 7"/></g>`,
+ coppe:`<path d="M26 20h48c0 22-8 30-19 34v20h13c3 0 3 8 0 8H32c-3 0-3-8 0-8h13V54C34 50 26 42 26 20z" fill="${col}"/><path d="M32 26h36c-1 12-6 18-18 21-12-3-17-9-18-21z" fill="rgba(255,255,255,.34)"/>`,
+ spade:`<path d="M50 6c5 12 8 22 8 34 0 16-3 28-8 40-5-12-8-24-8-40 0-12 3-22 8-34z" fill="${col}"/><rect x="24" y="62" width="52" height="7" rx="3.5" fill="${col}"/><rect x="46" y="66" width="8" height="24" rx="3" fill="${col}"/><circle cx="50" cy="92" r="6" fill="${col}"/>`,
+ bastoni:`<path d="M44 88c-3-16 0-34 3-48 2-10 3-18 2-28h6c-1 10 0 18 2 28 3 14 6 32 3 48z" fill="${col}"/><g fill="${col}"><ellipse cx="34" cy="34" rx="12" ry="9" transform="rotate(-32 34 34)"/><ellipse cx="66" cy="34" rx="12" ry="9" transform="rotate(32 66 34)"/><ellipse cx="50" cy="14" rx="10" ry="8"/></g>`}[s];
+ return `<svg viewBox="0 0 100 100" aria-hidden="true">${S}</svg>`;}
+const PIPS={1:[1],2:[1,1],3:[1,1,1],4:[2,2],5:[2,1,2],6:[2,2,2],7:[2,3,2]};
+function cardHTML(c,o={}){const s=SUITS[c.s],col=s.col,fig=c.r>=8;let inner;
+ if(fig){inner=`<div class="pips" style="inset:16px 12px 20px">${suitSVG(s.id,col)}</div><div class="figlbl">${FIG[c.r]}</div>`;}
+ else{const rows=PIPS[c.r];let g='';rows.forEach(n=>{g+=`<div style="display:flex;gap:4px;justify-content:center;align-items:center;height:100%">`+
+   Array(n).fill(`<span style="display:block;width:100%;max-width:22px">${suitSVG(s.id,col)}</span>`).join('')+`</div>`;});
+  inner=`<div class="pips" style="grid-template-rows:repeat(${rows.length},1fr)">${g}</div>`;}
+ return `<div class="card${o.sm?' sm':''}${fig?' fig':''}${o.trump?' trump':''}">
+  <span class="rk" style="color:${col}">${rkl(c.r)}</span>${inner}<span class="rk b" style="color:${col}">${rkl(c.r)}</span></div>`;}
+
+/* ================= motore ================= */
+function newDeck(){const d=[];for(let s=0;s<4;s++)for(let r=1;r<=10;r++)d.push({s,r});
+ for(let i=d.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[d[i],d[j]]=[d[j],d[i]];}return d;}
+function trickWinner(t,tr){let best=t[0];for(const p of t.slice(1)){const a=p.c,b=best.c;
+ if(a.s===b.s){if(STR[a.r]>STR[b.r])best=p;}else if(a.s===tr)best=p;}return best.seat;}
+const teamOf=(seat,n)=>n===4?seat%2:seat;
+
+/* ================= rete (MQTT pubblico) ================= */
+const BROKERS=['wss://broker.emqx.io:8084/mqtt','wss://test.mosquitto.org:8081/mqtt'];
+let cli=null, bi=0, connected=false;
+let me={id:localStorage.bt_id||('p'+Math.random().toString(36).slice(2,9)),name:localStorage.bt_name||''};
+localStorage.bt_id=me.id;
+let code=null, isHost=false, mySeat=-1, S=null, resolving=false;
+const T=c=>({s:'bt/'+c+'/s', a:'bt/'+c+'/a'});
+
+function connect(cb){
+  const url=BROKERS[bi%BROKERS.length]; bi++;
+  cli=mqtt.connect(url,{clientId:'bt_'+me.id+'_'+Math.random().toString(16).slice(2,6),
+    clean:true,connectTimeout:7000,reconnectPeriod:3000,keepalive:30});
+  cli.on('connect',()=>{connected=true;paint();cb&&cb();cb=null;});
+  cli.on('reconnect',()=>{connected=false;paint();});
+  cli.on('close',()=>{connected=false;paint();});
+  cli.on('error',()=>{});
+  cli.on('message',(t,p)=>{
+    let m; try{m=JSON.parse(p.toString());}catch(e){return;}
+    if(!code) return;
+    if(t===T(code).s){ if(!m.code){return;} S=m; syncSeat(); paint(); autoResolve(); }
+    else if(t===T(code).a && isHost){ handle(m); }
+  });
+}
+function pubState(){ if(cli&&S) cli.publish(T(code).s,JSON.stringify(S),{retain:true,qos:0}); }
+function send(a){ a.id=me.id; if(isHost) handle(a); else if(cli) cli.publish(T(code).a,JSON.stringify(a),{qos:0}); }
+
+/* ================= host: regole ================= */
+function handle(a){
+  if(!S) return;
+  if(a.t==='join'){
+    let i=S.seats.findIndex(s=>s&&s.id===a.id);
+    if(i<0) i=S.seats.findIndex(s=>!s);
+    if(i<0) return;
+    S.seats[i]={id:a.id,name:(a.name||'Ospite').slice(0,12)};
+  }
+  else if(a.t==='start'&&S.phase==='attesa'&&S.seats.every(Boolean)) deal();
+  else if(a.t==='play'&&S.phase==='gioco'){
+    const seat=S.seats.findIndex(s=>s&&s.id===a.id);
+    if(seat!==S.turn||S.table.length>=S.n) return;
+    const c=S.hands[seat][a.i]; if(!c) return;
+    S.hands[seat].splice(a.i,1); S.table.push({seat,c});
+    S.turn = S.table.length<S.n ? (S.turn+1)%S.n : -1;
+  }
+  else if(a.t==='rematch'&&S.phase==='fine') deal();
+  else return;
+  pubState(); syncSeat(); paint(); autoResolve();
+}
+function deal(){
+  const d=newDeck(); S.hands={}; for(let i=0;i<S.n;i++)S.hands[i]=d.splice(0,3);
+  S.trump=d[d.length-1]; S.trumpSuit=S.trump.s; S.deck=d;
+  S.table=[]; S.turn=(S.first||0)%S.n; S.first=(S.first||0)+1;
+  S.points=[0,0]; S.last=null; S.phase='gioco';
+}
+function autoResolve(){
+  if(!isHost||!S||S.phase!=='gioco'||resolving) return;
+  if(S.table.length!==S.n) return;
+  resolving=true;
+  setTimeout(()=>{
+    const w=trickWinner(S.table,S.trumpSuit);
+    const g=S.table.reduce((a,p)=>a+pts(p.c),0);
+    S.points[teamOf(w,S.n)]+=g; S.last={pts:g};
+    if(S.deck.length) for(let k=0;k<S.n;k++){const s=(w+k)%S.n; if(S.deck.length) S.hands[s].push(S.deck.shift());}
+    S.table=[]; S.turn=w;
+    if(!S.hands[0].length&&!S.deck.length) S.phase='fine';
+    resolving=false; pubState(); paint();
+  },1700);
+}
+
+/* ================= flusso ================= */
+const $=id=>document.getElementById(id);
+function syncSeat(){ if(S) mySeat=S.seats.findIndex(s=>s&&s.id===me.id); }
+const rnd=()=>{const A='ABCDEFGHJKLMNPQRSTUVWXYZ';return Array(4).fill(0).map(()=>A[Math.random()*A.length|0]).join('');};
+
+function apri(n){
+  code=rnd(); isHost=true;
+  S={code,n,phase:'attesa',seats:Array(n).fill(null),first:0};
+  S.seats[0]={id:me.id,name:me.name}; mySeat=0;
+  cli.subscribe(T(code).a,()=>{ pubState(); });
+  location.hash=code; paint();
+}
+function entra(c){
+  code=c; isHost=false; S=null; location.hash=c;
+  cli.subscribe(T(code).s,()=>{ send({t:'join',name:me.name}); });
+  paint();
+  setTimeout(()=>{ if(!S) paint('Nessuno risponde al tavolo '+c+'. Fai ricontrollare il codice a chi l\'ha aperto, e che tenga l\'app aperta.'); },6000);
+}
+function esci(){ if(cli){cli.unsubscribe(T(code).s);cli.unsubscribe(T(code).a);} 
+  if(isHost&&cli) cli.publish(T(code).s,'',{retain:true});
+  code=null;isHost=false;S=null;mySeat=-1;location.hash='';paint(); }
+
+/* ================= viste ================= */
+function paint(err){
+  if(!S && !code) return lobby(err);
+  if(!S) return attesaConn(err);
+  if(S.phase==='attesa') return stanza();
+  tavolo();
+}
+const conn=()=>`<span class="dot ${connected?'on':''}"></span><span>${connected?'in linea':'ricollego…'}</span>`;
+
+function lobby(err){
+  $('app').innerHTML=`
+  <div class="brand"><h1>Briscola<em>al tavolo</em></h1></div><div class="rule"></div>
+  <p class="lede">Carte napoletane per chi è già seduto insieme e non ha il mazzo. Un codice, ognuno col suo telefono.</p>
+  <div class="panel">
+    <label class="f" for="nm">Come ti chiamano</label>
+    <input type="text" id="nm" maxlength="12" placeholder="Il tuo nome" value="${me.name}">
+    <label class="f" style="margin-top:16px">In quanti giocate</label>
+    <div class="seg" id="np"><button data-n="2" aria-pressed="true">2 giocatori</button><button data-n="4" aria-pressed="false">4 a coppie</button></div>
+    <button class="btn" id="crea">Apri un tavolo</button>
+  </div>
+  <div class="panel">
+    <label class="f" for="cd">Ti hanno dato un codice</label>
+    <input type="text" id="cd" class="code-in" maxlength="4" placeholder="····" autocomplete="off">
+    <button class="btn ghost" id="go">Siediti al tavolo</button>
+  </div>
+  <p class="err">${err||''}</p>
+  <div class="topbar" style="justify-content:center;padding-top:8px">${conn()}</div>`;
+  let n=2;
+  document.querySelectorAll('#np button').forEach(b=>b.onclick=()=>{n=+b.dataset.n;
+    document.querySelectorAll('#np button').forEach(x=>x.setAttribute('aria-pressed',x===b));});
+  const nome=()=>($('nm').value||'').trim().slice(0,12);
+  $('crea').onclick=()=>{ if(!nome())return paint('Scrivi un nome, così gli altri sanno chi sei.');
+    me.name=nome(); localStorage.bt_name=me.name; if(!connected)return paint('Ancora non sono collegato. Un attimo e riprova.'); apri(n); };
+  $('go').onclick=()=>{ const c=($('cd').value||'').trim().toUpperCase();
+    if(!nome())return paint('Scrivi un nome prima di entrare.');
+    if(c.length!==4)return paint('Il codice è di quattro lettere.');
+    me.name=nome(); localStorage.bt_name=me.name;
+    if(!connected)return paint('Ancora non sono collegato. Un attimo e riprova.'); entra(c); };
+  const h=location.hash.replace('#','').toUpperCase(); if(h.length===4&&!$('cd').value) $('cd').value=h;
+}
+function attesaConn(err){
+  $('app').innerHTML=`<div class="topbar">${conn()}<span class="sp"></span><button id="x">Esci</button></div>
+   <div class="felt"><p class="msg">Entro al tavolo <b>${code}</b>…</p></div>
+   <p class="err" style="text-align:center">${err||''}</p>`;
+  $('x').onclick=esci;
+}
+function stanza(){
+  const seated=S.seats.filter(Boolean).length;
+  $('app').innerHTML=`
+  <div class="topbar">${conn()}<span class="sp"></span><button id="x">Esci</button></div>
+  <div class="roomcode">${S.code}</div>
+  <p class="lede" style="font-size:14px">Detta le quattro lettere agli altri, oppure passa questo link: si apre già col codice dentro.</p>
+  <ul class="seatlist">${S.seats.map((s,i)=>{
+    const t=S.n===4?`<span class="team">Coppia ${i%2?'B':'A'}</span>`:'';
+    return s?`<li class="${s.id===me.id?'me':''}"><span class="n">${i+1}</span>${s.name}${s.id===me.id?' · tu':''}${t}</li>`
+            :`<li class="empty"><span class="n">${i+1}</span>posto libero${t}</li>`;}).join('')}</ul>
+  ${isHost?`<button class="btn" id="via" ${seated<S.n?'disabled':''}>${seated<S.n?`Manca ${S.n-seated} giocatore${S.n-seated>1?'i':''}`:'Distribuisci le carte'}</button>
+            <button class="btn ghost" id="link">Copia il link del tavolo</button>`
+          :`<p class="hint" style="text-align:center;margin-top:18px">${seated<S.n?'Si aspettano gli altri…':'Tutti seduti. Tocca a chi ha aperto il tavolo dare le carte.'}</p>`}
+  <p class="hint">Chi ha aperto il tavolo fa da mazziere: deve tenere questa pagina aperta per tutta la partita.</p>`;
+  $('x').onclick=esci;
+  if($('via'))$('via').onclick=()=>send({t:'start'});
+  if($('link'))$('link').onclick=()=>{const u=location.href.split('#')[0]+'#'+S.code;
+    navigator.clipboard?.writeText(u); $('link').textContent='Link copiato';};
+}
+function tavolo(){
+  const n=S.n, hand=(S.hands&&S.hands[mySeat])||[], turn=S.turn, fin=S.phase==='fine';
+  const nm=i=>S.seats[i]?S.seats[i].name:'—';
+  const opps=[]; for(let k=1;k<n;k++)opps.push((mySeat+k)%n);
+  const mt=teamOf(mySeat,n);
+  let msg;
+  if(fin){const a=S.points[mt],b=S.points[1-mt];
+    msg=a>b?`Avete vinto <b>${a} a ${b}</b>`:a<b?`Persa <b>${a} a ${b}</b>`:'Pareggio, <b>60 a 60</b>';}
+  else if(S.table.length===n){const w=trickWinner(S.table,S.trumpSuit);msg=`Presa di <b>${w===mySeat?'tuo':nm(w)}</b>`;}
+  else if(turn===mySeat) msg='<b>Tocca a te</b>';
+  else msg=`Gioca <b>${nm(turn)}</b>`;
+  $('app').innerHTML=`
+  <div class="topbar">${conn()}<span class="sp"></span>
+    <span>Briscola: <span style="color:${SUITS[S.trumpSuit].col}">${SUITS[S.trumpSuit].nome}</span></span>
+    <button id="x" style="margin-left:10px">Esci</button></div>
+  <div class="opps">${opps.map(i=>`<span class="opp ${turn===i?'turn':''}"><span>${nm(i)}${n===4&&teamOf(i,n)===mt?' · con te':''}</span>
+    <span class="mini">${Array(((S.hands&&S.hands[i])||[]).length).fill('<i></i>').join('')}</span></span>`).join('')}</div>
+  <div class="felt">
+    <div class="deckbox"><span class="cnt">${S.deck.length}</span>
+      ${S.deck.length>1?'<span class="backcard"></span>':''}
+      ${S.deck.length?`<span class="trumpslot">${cardHTML(S.trump,{sm:1,trump:1})}</span>`:'<span style="font-size:11px;color:var(--dim)">mazzo finito</span>'}</div>
+    <div class="played">${S.table.length
+      ? S.table.map(p=>`<span class="playedwrap">${cardHTML(p.c)}<small>${p.seat===mySeat?'tu':nm(p.seat)}</small></span>`).join('')
+      : (S.last?`<span style="color:var(--dim);font-size:13px">ultima presa: ${S.last.pts} punti</span>`:'')}</div>
+    <p class="msg">${msg}</p></div>
+  <div class="scores">
+    <div class="sc ${fin&&S.points[mt]>S.points[1-mt]?'win':''}"><div class="lbl">${n===4?'La tua coppia':'Tu'}</div><div class="val">${S.points[mt]}</div></div>
+    <div class="sc ${fin&&S.points[1-mt]>S.points[mt]?'win':''}"><div class="lbl">${n===4?'Avversari':nm((mySeat+1)%n)}</div><div class="val">${S.points[1-mt]}</div></div></div>
+  ${fin?(isHost?'<button class="btn" id="ri">Un\'altra mano</button>':'<p class="hint" style="text-align:center">Il mazziere può dare di nuovo.</p>')
+       :`<div class="hand">${hand.map((c,i)=>`<button class="slot ${turn===mySeat?'playable':''}" data-i="${i}" ${turn===mySeat&&S.table.length<n?'':'disabled'}>${cardHTML(c)}</button>`).join('')}</div>`}`;
+  $('x').onclick=esci;
+  if($('ri'))$('ri').onclick=()=>send({t:'rematch'});
+  document.querySelectorAll('.slot').forEach(b=>b.onclick=()=>send({t:'play',i:+b.dataset.i}));
+}
+connect(()=>paint());
+paint();
+</script>
+</body>
+</html>
