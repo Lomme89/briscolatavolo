@@ -89,12 +89,11 @@ input[type=text]:focus{outline:2px solid var(--oro);outline-offset:1px}
   background:radial-gradient(60% 50% at 50% 45%,rgba(255,255,255,.05),transparent 70%)}
 .played{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;position:relative;align-items:center;
   min-height:calc(var(--pw)*1.517 + 20px)}
-.playedwrap{display:flex;flex-direction:column;align-items:center;gap:4px;transition:transform .5s cubic-bezier(.5,0,.75,0),opacity .5s}
+.playedwrap{display:flex;flex-direction:column;align-items:center;gap:4px;will-change:transform}
 .playedwrap small{font-size:11px;color:var(--dim);max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .playedwrap.best small{color:var(--oro)}
-.played.sweep .playedwrap{transform:translateY(-46px) scale(.55);opacity:0}
-.played .card{--cw:var(--pw);animation:playIn .3s cubic-bezier(.2,.9,.3,1.25) both}
-@keyframes playIn{from{opacity:0;transform:translateY(-30px) scale(.85) rotate(3deg)}}
+.played .card{--cw:var(--pw)}
+.playedwrap.best .card{box-shadow:0 0 0 2px var(--oro),0 8px 22px rgba(0,0,0,.42)}
 
 /* ---- annuncio di turno ---- */
 .turnbar{display:flex;align-items:center;justify-content:center;gap:9px;padding:11px 16px;border-radius:999px;
@@ -121,15 +120,21 @@ input[type=text]:focus{outline:2px solid var(--oro);outline-offset:1px}
 /* ---- mano ---- */
 .hand{display:flex;gap:8px;justify-content:center;padding-top:12px;align-items:flex-end;
   min-height:calc(var(--cw)*1.517 + 16px)}
-.slot{padding:0;border-radius:10px;transition:transform .18s cubic-bezier(.2,.9,.3,1.3);position:relative}
-.slot .card{animation:dealIn .34s cubic-bezier(.2,.9,.3,1.2) both}
-.slot:nth-child(1){transform:rotate(-2.5deg)}
-.slot:nth-child(3){transform:rotate(2.5deg)}
-.slot:disabled{opacity:.55;filter:saturate(.75)}
+.slot{--r:0deg;padding:0;border-radius:10px;position:relative;animation:galleggia 3.8s ease-in-out infinite}
+.slot:nth-child(1){--r:-3deg;animation-delay:-1.3s}
+.slot:nth-child(2){--r:.5deg;animation-delay:-.2s}
+.slot:nth-child(3){--r:3deg;animation-delay:-2.4s}
+@keyframes galleggia{0%,100%{transform:translateY(0) rotate(var(--r))}
+  50%{transform:translateY(-5px) rotate(calc(var(--r) + 1deg))}}
+.slot .card{animation:dealIn .4s cubic-bezier(.2,1.3,.4,1) both;transition:transform .16s cubic-bezier(.2,1.6,.4,1),box-shadow .16s}
+.slot:nth-child(2) .card{animation-delay:.06s}
+.slot:nth-child(3) .card{animation-delay:.12s}
+.slot:disabled{opacity:.58;filter:saturate(.72)}
 .slot.playable:not(:disabled){cursor:pointer}
-.slot.playable:not(:disabled):active{transform:translateY(-14px) scale(1.04)}
-.slot.gone{transform:translateY(-70px) scale(.7);opacity:0;transition:.3s ease-in}
-@keyframes dealIn{from{opacity:0;transform:translateY(34px) scale(.86)}}
+.slot.playable:not(:disabled):active .card{transform:translateY(-16px) scale(1.07) rotate(-1deg);
+  box-shadow:0 16px 26px rgba(0,0,0,.45)}
+.slot.gone{animation:none}
+@keyframes dealIn{from{opacity:0;transform:translateY(40px) scale(.8) rotate(-8deg)}}
 .slot .brisc-flag{position:absolute;top:5px;right:5px;width:11px;height:11px;border-radius:50%;
   background:var(--oro);box-shadow:0 0 0 2px rgba(0,0,0,.25);z-index:3}
 
@@ -148,8 +153,12 @@ input[type=text]:focus{outline:2px solid var(--oro);outline-offset:1px}
 .sc .lbl{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sc .val{font-family:var(--display);font-size:25px;color:var(--oro);line-height:1.25}
-.sc .val.bump{animation:bump .5s}
-@keyframes bump{40%{transform:scale(1.3);color:#F6EEDC}}
+.sc .val{transition:transform .2s}
+.sc .val.bump{animation:bump .55s cubic-bezier(.2,1.5,.4,1)}
+@keyframes bump{35%{transform:scale(1.32);color:#F6EEDC}}
+.plus{position:absolute;font-family:var(--display);font-size:22px;color:var(--oro);pointer-events:none;
+  z-index:15;text-shadow:0 2px 6px rgba(0,0,0,.6)}
+.sc{position:relative}
 
 /* ---- pannelli sovrapposti ---- */
 .sheet{position:fixed;inset:0;background:rgba(9,20,16,.82);backdrop-filter:blur(3px);z-index:20;
@@ -353,6 +362,69 @@ function suoniDiff(){
   prev={turn:S.turn,tavolo:t,fase:S.phase,punti:S.points?S.points.join():null};
 }
 
+/* ================= animazioni ================= */
+const RM=matchMedia('(prefers-reduced-motion:reduce)').matches;
+let anim={len:0,mano:0,punti:null}, daDove=null;
+const rectOf=s=>{const e=document.querySelector(s);return e?e.getBoundingClientRect():null;};
+const centro=r=>({x:r.left+r.width/2,y:r.top+r.height/2});
+
+function lancia(){
+  if(RM) return;
+  const w=[...document.querySelectorAll('.playedwrap')];
+  if(!w.length) return;
+  const el=w[w.length-1], seat=+el.dataset.seat;
+  let from=(seat===mySeat&&daDove)?daDove:rectOf('.opp[data-seat="'+seat+'"]');
+  daDove=null;
+  const to=el.getBoundingClientRect();
+  if(!from) from={left:to.left,top:-140,width:to.width*.5,height:to.height*.5};
+  const a=centro(from), b=centro(to);
+  const dx=a.x-b.x, dy=a.y-b.y;
+  const sc=Math.max(.3,Math.min(1.1,from.width/to.width));
+  const rot=(dx>0?-1:1)*(10+Math.random()*12);
+  el.animate([
+    {transform:`translate(${dx}px,${dy}px) rotate(${rot}deg) scale(${sc})`,opacity:.6},
+    {transform:`translate(${dx*.3}px,${dy*.3-18}px) rotate(${rot*.25}deg) scale(${(sc+1)/2})`,opacity:1,offset:.58},
+    {transform:'translate(0,0) rotate(0) scale(1.06)',opacity:1,offset:.82},
+    {transform:'none',opacity:1}
+  ],{duration:440,easing:'cubic-bezier(.25,.9,.3,1)'});
+}
+function battito(seat){
+  if(RM) return;
+  const el=document.querySelector('.playedwrap[data-seat="'+seat+'"] .card');
+  if(el) el.animate([{transform:'scale(1)'},{transform:'scale(1.16) rotate(-2deg)'},{transform:'scale(1)'}],
+    {duration:380,easing:'cubic-bezier(.3,1.6,.4,1)'});
+}
+function raccogli(w){
+  if(RM) return;
+  const wraps=[...document.querySelectorAll('.playedwrap')];
+  const t=w===mySeat?(rectOf('.hand')||rectOf('.scores')):rectOf('.opp[data-seat="'+w+'"]');
+  wraps.forEach((el,i)=>{
+    const r=centro(el.getBoundingClientRect());
+    const dx=t?centro(t).x-r.x:0, dy=t?centro(t).y-r.y:-120;
+    el.animate([{transform:'none',opacity:1},
+      {transform:`translate(${dx*.25}px,${dy*.18-10}px) rotate(${(i%2?6:-6)}deg) scale(1.04)`,opacity:1,offset:.28},
+      {transform:`translate(${dx}px,${dy}px) rotate(${(i%2?34:-34)}deg) scale(.28)`,opacity:0}],
+      {duration:560,delay:i*45,easing:'cubic-bezier(.5,0,.7,.25)',fill:'forwards'});
+  });
+}
+function scossa(){
+  if(RM) return; const f=document.querySelector('.felt'); if(!f) return;
+  f.animate([{transform:'translate(0)'},{transform:'translate(-5px,3px)'},{transform:'translate(5px,-3px)'},
+    {transform:'translate(-3px,1px)'},{transform:'none'}],{duration:280});
+}
+function volaPunti(gr,n){
+  if(RM||!n) return;
+  const sc=document.querySelectorAll('.sc')[gr]; if(!sc) return;
+  const s=document.createElement('span'); s.className='plus'; s.textContent='+'+n;
+  s.style.left='50%'; s.style.top='4px'; s.style.transform='translateX(-50%)';
+  sc.appendChild(s);
+  s.animate([{transform:'translate(-50%,6px) scale(.7)',opacity:0},
+             {transform:'translate(-50%,-10px) scale(1.15)',opacity:1,offset:.35},
+             {transform:'translate(-50%,-34px) scale(1)',opacity:0}],
+            {duration:1100,easing:'cubic-bezier(.2,.9,.3,1)'}).onfinish=()=>s.remove();
+  const v=sc.querySelector('.val'); if(v){v.classList.remove('bump');void v.offsetWidth;v.classList.add('bump');}
+}
+
 /* ================= viste ================= */
 function paint(err){
   if(!S && !code) return lobby(err);
@@ -458,7 +530,7 @@ function tavolo(){
   <div class="topbar">${conn()}<span class="sp"></span>
     <span class="brisc">Briscola <b style="color:${SUITS[S.trumpSuit].col}">${SUITS[S.trumpSuit].nome}</b></span>
     ${mutoBtn()}<button id="cl">📊</button><button id="rg">?</button><button id="x">✕</button></div>
-  <div class="opps">${opps.map(i=>`<span class="opp ${turn===i?'turn':''}">
+  <div class="opps">${opps.map(i=>`<span class="opp ${turn===i?'turn':''}" data-seat="${i}">
     <span>${nomeDi(i)}${S.teams&&groupOf(i,S)===gm?' · con te':''}</span>
     ${S.tr&&S.tr[i]?`<b>${S.tr[i]}</b>`:''}
     <span class="mini">${Array(((S.hands&&S.hands[i])||[]).length).fill('<i></i>').join('')}</span></span>`).join('')}</div>
@@ -467,7 +539,7 @@ function tavolo(){
       ${S.deck.length>1?'<span class="backcard"></span>':''}
       ${S.deck.length?`<span class="trumpslot">${cardHTML(S.trump,{trump:1})}</span>`:'<span style="font-size:11px;color:var(--dim)">mazzo finito</span>'}</div>
     <div class="played" id="pl">${S.table.length
-      ? S.table.map(p=>`<span class="playedwrap${p.seat===best?' best':''}">${cardHTML(p.c)}<small>${p.seat===mySeat?'tu':nomeDi(p.seat)}</small></span>`).join('')
+      ? S.table.map(p=>`<span class="playedwrap${p.seat===best?' best':''}" data-seat="${p.seat}">${cardHTML(p.c)}<small>${p.seat===mySeat?'tu':nomeDi(p.seat)}</small></span>`).join('')
       : (S.last?`<span style="color:var(--dim);font-size:13px">ultima presa: ${S.last.pts} punti a ${S.last.seat===mySeat?'te':nomeDi(S.last.seat)}</span>`:'')}</div>
     ${barra}</div>
   <div class="scores">${Array.from({length:G},(_,g)=>`
@@ -481,11 +553,30 @@ function tavolo(){
   if($('ri'))$('ri').onclick=()=>send({t:'rematch'});
   document.querySelectorAll('.slot').forEach(b=>b.onclick=()=>{
     if(b.disabled) return;
+    const c=b.querySelector('.card');
+    daDove=c?c.getBoundingClientRect():null;
     b.classList.add('gone');
+    if(c&&!RM) c.animate([{transform:'translateY(-16px) scale(1.07)',opacity:1},
+      {transform:'translateY(-52px) scale(.86)',opacity:0}],{duration:200,easing:'ease-in',fill:'forwards'});
     document.querySelectorAll('.slot').forEach(o=>o.disabled=true);
-    setTimeout(()=>send({t:'play',i:+b.dataset.i}),90);
+    setTimeout(()=>send({t:'play',i:+b.dataset.i}),110);
   });
-  if(pieno&&!fin) setTimeout(()=>{const p=$('pl'); if(p)p.classList.add('sweep');},1150);
+
+  // regia: lancio, battito sulla carta che prende, raccolta verso il vincitore
+  const len=S.table.length, nuovaMano=S.mano!==anim.mano;
+  if(len>anim.len&&!nuovaMano) requestAnimationFrame(lancia);
+  else if(len&&nuovaMano) requestAnimationFrame(lancia);
+  if(pieno&&!fin){
+    setTimeout(()=>battito(best),260);
+    setTimeout(()=>raccogli(best),1150);
+    if(S.table.reduce((a,p)=>a+pts(p.c),0)>=10) setTimeout(scossa,300);
+  }
+  const pStr=S.points.join();
+  if(anim.punti&&pStr!==anim.punti&&!nuovaMano){
+    const vecchi=anim.punti.split(',').map(Number);
+    S.points.forEach((p,g)=>volaPunti(g,p-vecchi[g]));
+  }
+  anim={len,mano:S.mano,punti:pStr};
 }
 
 /* ================= pannelli ================= */
