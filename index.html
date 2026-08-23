@@ -335,7 +335,8 @@ function handle(a){
   }
   else if(a.t==='leave'){ if(S.phase==='gioco')return; S.seats=S.seats.filter(s=>s.id!==a.id); }
   else if(a.t==='squadre'&&S.phase!=='gioco'){ S.teams=!!a.v; }
-  else if(a.t==='gioco'&&S.phase!=='gioco'){ S.game=a.v==='scopa'?'scopa':'briscola'; }
+  else if(a.t==='gioco'&&S.phase!=='gioco'){ S.game=a.v==='scopa'?'scopa':'briscola'; ripulisci(); }
+  else if(a.t==='stanza'&&S.phase==='fine'){ ripulisci(); }
   else if((a.t==='start'||a.t==='rematch')&&S.phase!=='gioco'&&S.seats.length>=2){
     if(S.game==='scopa'&&S.seats.length===5) return; else deal();
   }
@@ -353,6 +354,10 @@ function handle(a){
   }
   else return;
   pubState(); syncSeat(); paint(); autoResolve();
+}
+function ripulisci(){
+  S.phase='attesa'; S.table=null; S.board=null; S.hands=null;
+  S.deck=null; S.trump=null; S.mossa=null; S.esito=null;
 }
 function deal(){
   S.n=S.seats.length;
@@ -414,7 +419,8 @@ function finisciScopa(){
     S.seats.forEach((s,i)=>{ if(groupOf(i,S)===gr) S.albo[s.id]=(S.albo[s.id]||0)+1; }); });
 }
 function autoResolve(){
-  if(!isHost||!S||S.phase!=='gioco'||resolving||S.table.length!==S.n) return;
+  if(!isHost||!S||S.game==='scopa'||!S.table) return;
+  if(S.phase!=='gioco'||resolving||S.table.length!==S.n) return;
   resolving=true;
   setTimeout(()=>{
     const w=trickWinner(S.table,S.trumpSuit);
@@ -462,6 +468,16 @@ function esci(){
 /* ================= suoni reattivi ================= */
 function suoniDiff(){
   if(!S||S.phase==='attesa') return;
+  if(S.game==='scopa'||!S.table){
+    if(S.phase==='gioco'&&prev.fase!=='gioco') SND.distribuisci();
+    else if(S.phase==='gioco'&&S.turn===mySeat&&prev.turn!==mySeat) SND.tuoTurno();
+    if(S.phase==='fine'&&prev.fase!=='fine'){
+      const top=Math.max(...S.points);
+      S.points[groupOf(mySeat,S)]===top?SND.finePro():SND.fineContro();
+    }
+    prev={turn:S.turn,tavolo:0,fase:S.phase,punti:S.points?S.points.join():null};
+    return;
+  }
   const t=S.table.length;
   if(t>prev.tavolo) SND.giocata();
   if(prev.tavolo===S.n && t===0 && S.last){ S.last.seat===mySeat?SND.presaMia():SND.presa(); }
@@ -542,6 +558,7 @@ function paint(err){
   if(!S && !code) return lobby(err);
   if(!S) return attesaConn(err);
   if(S.phase==='attesa') return stanza();
+  if(S.game==='scopa'? !S.board : !S.table) return stanza();
   if(S.game==='scopa') tavoloScopa(); else tavolo();
   suoniDiff();
 }
@@ -692,12 +709,13 @@ function tavolo(){
   <div class="scores">${Array.from({length:G},(_,g)=>`
     <div class="sc ${fin&&vinc.includes(g)?'win':''}${g===gm?' mine':''}">
       <div class="lbl">${eti(g)}</div><div class="val">${S.points[g]}</div></div>`).join('')}</div>
-  ${fin?(isHost?'<button class="btn" id="ri">Un\'altra mano</button>'
+  ${fin?(isHost?'<button class="btn" id="ri">Un\'altra mano</button><button class="btn ghost" id="tn">Torna al tavolo</button>'
                :'<p class="hint" style="text-align:center">Il mazziere può dare di nuovo.</p>')
        :`<div class="hand">${hand.map((c,i)=>`<button class="slot ${turn===mySeat?'playable':''}" data-i="${i}"
           ${turn===mySeat&&S.table.length<n?'':'disabled'}>${c.s===S.trumpSuit?'<span class="brisc-flag"></span>':''}${cardHTML(c)}</button>`).join('')}</div>`}`;
   $('x').onclick=esci; $('rg').onclick=regole; $('cl').onclick=classifica; legaMuto();
   if($('ri'))$('ri').onclick=()=>send({t:'rematch'});
+  if($('tn'))$('tn').onclick=()=>send({t:'stanza'});
   document.querySelectorAll('.slot').forEach(b=>b.onclick=()=>{
     if(b.disabled) return;
     const c=b.querySelector('.card');
@@ -767,12 +785,13 @@ function tavoloScopa(){
   <div class="scores">${Array.from({length:G},(_,g)=>`
     <div class="sc ${fin&&vinc.includes(g)?'win':''}${g===gm?' mine':''}">
       <div class="lbl">${eti(g)}</div><div class="val">${S.points[g]}</div></div>`).join('')}</div>
-  ${fin?(isHost?'<button class="btn" id="ri">Un\'altra mano</button>'
+  ${fin?(isHost?'<button class="btn" id="ri">Un\'altra mano</button><button class="btn ghost" id="tn">Torna al tavolo</button>'
                :'<p class="hint" style="text-align:center">Il mazziere può dare di nuovo.</p>')
        :`<div class="hand">${hand.map((c,i)=>`<button class="slot ${turn===mySeat?'playable':''}" data-i="${i}"
           ${turn===mySeat?'':'disabled'}>${cardHTML(c)}</button>`).join('')}</div>`}`;
   $('x').onclick=esci; $('rg').onclick=regole; $('cl').onclick=classifica; legaMuto();
   if($('ri'))$('ri').onclick=()=>send({t:'rematch'});
+  if($('tn'))$('tn').onclick=()=>send({t:'stanza'});
   document.querySelectorAll('.slot').forEach(b=>b.onclick=()=>{
     if(b.disabled) return;
     const i=+b.dataset.i, c=hand[i], opts=prese(S.board,c.r);
