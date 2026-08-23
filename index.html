@@ -22,24 +22,39 @@
   --display:"Palatino Linotype","Book Antiqua",Palatino,Georgia,serif;
   --ui:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   --cw:104px;
+  /* grana del panno: rumore frattale desaturato, ripetuto */
+  --grana:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23g)'/%3E%3C/svg%3E");
+  /* superficie rialzata: filo di luce in alto, ombra sotto */
+  --su-alto:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,0) 62%),rgba(0,0,0,.2);
+  --su-alto-om:inset 0 1px 0 rgba(255,255,255,.07),0 2px 5px rgba(0,0,0,.22);
+  /* superficie incassata: contenitori che devono arretrare */
+  --su-basso:rgba(0,0,0,.26);
+  --su-basso-om:inset 0 2px 9px rgba(0,0,0,.3);
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{height:100%}
 body{margin:0;font-family:var(--ui);color:#EFE7D6;min-height:100dvh;overscroll-behavior:none;
   background:radial-gradient(120% 80% at 50% 0%,#26523F 0%,var(--felt) 45%,var(--felt-deep) 100%)}
+body::before{content:"";position:fixed;inset:0;background-image:var(--grana);background-size:160px 160px;
+  opacity:.3;mix-blend-mode:overlay;pointer-events:none;z-index:0}
 button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
-.wrap{max-width:600px;margin:0 auto;padding:14px 12px 20px;min-height:100dvh;display:flex;flex-direction:column}
+.wrap{max-width:600px;margin:0 auto;min-height:100dvh;display:flex;flex-direction:column;position:relative;z-index:1;
+  padding:calc(14px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right))
+          calc(20px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left))}
 @media (min-width:900px) and (pointer:fine){
   body{background:radial-gradient(90% 70% at 50% 0%,#2A5946 0%,var(--felt) 45%,var(--felt-deep) 100%)}
   .wrap{max-width:840px;padding:20px 28px 28px}
   .felt{min-height:300px}
-  .felt::before{background:radial-gradient(55% 55% at 50% 45%,rgba(255,255,255,.06),transparent 72%);
-    box-shadow:inset 0 0 60px rgba(0,0,0,.25)}
+  .felt::before{background:radial-gradient(52% 52% at 50% 44%,rgba(255,255,255,.06),transparent 72%),
+      radial-gradient(80% 70% at 50% 50%,transparent 46%,rgba(6,18,14,.36) 100%);
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.05),inset 0 1px 0 rgba(255,255,255,.07),
+      inset 0 0 70px rgba(6,18,14,.3)}
   .opp{font-size:14px;padding:8px 13px}
   .turnbar{font-size:22px;padding:13px 22px}
   .sc .val{font-size:30px}
   .roomcode{font-size:64px}
   .hand{gap:14px}
+  .slot.playable:not(:disabled):hover{z-index:4}
   .slot.playable:not(:disabled):hover .card{transform:translateY(-18px) scale(1.06) rotate(-1deg);
     box-shadow:0 20px 34px rgba(0,0,0,.5)}
   .tastiera{display:block}
@@ -49,6 +64,9 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
 .tastiera{display:none;text-align:center;color:var(--dim);font-size:12px;margin-top:26px}
 .slot .tasto{display:none}
 #install{display:none}
+.ico{width:18px;height:18px;display:block;fill:none;stroke:currentColor;stroke-width:1.6;
+  stroke-linecap:round;stroke-linejoin:round}
+.topbar .ico{width:17px;height:17px}
 
 /* ---- tipografia lobby ---- */
 .brand{text-align:center;margin:20px 0 6px}
@@ -57,14 +75,15 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
   color:var(--oro);margin-top:12px;padding-left:.34em}
 .rule{height:1px;background:linear-gradient(90deg,transparent,var(--felt-line),transparent);margin:18px 0}
 .lede{color:var(--dim);text-align:center;font-size:15px;line-height:1.5;margin:0 auto;max-width:34ch}
-.panel{background:rgba(0,0,0,.18);border:1px solid var(--felt-line);border-radius:14px;padding:16px;margin-top:14px}
+.panel{background:var(--su-basso);box-shadow:var(--su-basso-om);border:1px solid rgba(46,90,74,.55);
+  border-radius:14px;padding:16px;margin-top:14px}
 label.f{display:block;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin-bottom:8px}
 input[type=text]{width:100%;padding:13px 14px;border-radius:10px;border:1px solid var(--felt-line);
-  background:rgba(0,0,0,.25);color:#F6EEDC;font-size:17px;font-family:var(--ui)}
+  background:rgba(0,0,0,.3);box-shadow:inset 0 2px 6px rgba(0,0,0,.28);color:#F6EEDC;font-size:17px;font-family:var(--ui)}
 input[type=text]:focus{outline:2px solid var(--oro);outline-offset:1px}
 .seg{display:flex;gap:8px}
-.seg button{flex:1;padding:11px 0;border:1px solid var(--felt-line);border-radius:10px;background:rgba(0,0,0,.2);
-  color:var(--dim);font-size:14px;transition:.18s}
+.seg button{flex:1;padding:11px 0;border:1px solid var(--felt-line);border-radius:10px;
+  background:var(--su-alto);box-shadow:var(--su-alto-om);color:var(--dim);font-size:14px;transition:.18s}
 .seg button[aria-pressed=true]{background:var(--oro);color:#241A0F;border-color:var(--oro);font-weight:600}
 .btn{display:block;width:100%;padding:14px;border-radius:11px;background:var(--oro);color:#241A0F;
   font-weight:700;font-size:16px;margin-top:12px;transition:transform .12s,filter .12s}
@@ -79,12 +98,13 @@ input[type=text]:focus{outline:2px solid var(--oro);outline-offset:1px}
 .topbar{display:flex;align-items:center;gap:8px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;
   color:var(--dim);padding-bottom:8px}
 .topbar .sp{margin-left:auto}
-.topbar button{color:var(--dim);font-size:15px;padding:4px 6px;border-radius:8px}
+.topbar button{color:var(--dim);font-size:15px;padding:5px 6px;border-radius:8px;display:grid;place-items:center}
+.topbar button:hover{color:#EFE7D6}
 .topbar button:active{background:rgba(255,255,255,.08)}
 .dot{width:7px;height:7px;border-radius:50%;background:#C0563F;flex:none;transition:background .3s}
 .dot.on{background:#5FBF8A}
 .brisc{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;
-  background:rgba(0,0,0,.28);border:1px solid var(--felt-line);letter-spacing:.06em}
+  background:var(--su-alto);box-shadow:var(--su-alto-om);border:1px solid var(--felt-line);letter-spacing:.06em}
 
 /* ---- stanza ---- */
 .roomcode{font-family:var(--display);font-size:clamp(42px,15vw,58px);letter-spacing:.22em;color:var(--oro);
@@ -93,7 +113,8 @@ input[type=text]:focus{outline:2px solid var(--oro);outline-offset:1px}
 #qr img,#qr canvas{border-radius:12px;border:6px solid #F3E7CD;background:#F3E7CD;display:block}
 .seatlist{list-style:none;margin:14px 0 0;padding:0;display:grid;gap:8px}
 .seatlist li{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:10px;
-  background:rgba(0,0,0,.2);border:1px solid var(--felt-line);font-size:15px;animation:slide .3s both}
+  background:var(--su-alto);box-shadow:var(--su-alto-om);border:1px solid var(--felt-line);
+  font-size:15px;animation:slide .3s both}
 .seatlist li .n{width:22px;height:22px;border-radius:50%;background:var(--felt-line);display:grid;
   place-items:center;font-size:11px;flex:none}
 .seatlist li.me{border-color:var(--oro)}
@@ -103,20 +124,23 @@ input[type=text]:focus{outline:2px solid var(--oro);outline-offset:1px}
 
 /* ---- giocatori ---- */
 .opps{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:8px}
-.opp{display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:rgba(0,0,0,.22);
-  border:1px solid transparent;font-size:13px;transition:border-color .25s,box-shadow .25s}
-.opp.turn{border-color:var(--oro);box-shadow:0 0 0 3px rgba(214,154,36,.16)}
+.opp{display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:var(--su-alto);
+  box-shadow:var(--su-alto-om);border:1px solid transparent;font-size:13px;transition:border-color .25s,box-shadow .25s}
+.opp.turn{border-color:var(--oro);box-shadow:var(--su-alto-om),0 0 0 3px rgba(214,154,36,.16)}
 .opp .mini{display:flex}
-.opp .mini i{width:9px;height:14px;border-radius:2px;background:linear-gradient(160deg,#8E2A24,#5E1A16);
-  border:1px solid #40100D;margin-left:-3px;display:block}
+.opp .mini i{width:9px;height:14px;border-radius:2px;background:var(--dorso);
+  box-shadow:var(--dorso-om);border:1px solid #40100D;margin-left:-3px;display:block}
 .opp .mini i:first-child{margin-left:0}
 .opp b{color:var(--oro);font-weight:600;font-size:12px}
 
 /* ---- tavolo ---- */
 .felt{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:10px;
   position:relative;padding:8px 0;min-height:200px}
-.felt::before{content:"";position:absolute;inset:0;border-radius:20px;border:1px solid rgba(255,255,255,.05);
-  background:radial-gradient(60% 50% at 50% 45%,rgba(255,255,255,.05),transparent 70%)}
+.felt::before{content:"";position:absolute;inset:0;border-radius:20px;pointer-events:none;
+  background:radial-gradient(58% 48% at 50% 42%,rgba(255,255,255,.055),transparent 68%),
+    radial-gradient(78% 66% at 50% 50%,transparent 42%,rgba(6,18,14,.34) 100%);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.045),inset 0 1px 0 rgba(255,255,255,.06),
+    inset 0 0 56px rgba(6,18,14,.3)}
 .played{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;position:relative;align-items:center;
   min-height:calc(var(--pw)*1.517 + 20px)}
 .playedwrap{display:flex;flex-direction:column;align-items:center;gap:4px;will-change:transform}
@@ -141,29 +165,44 @@ input[type=text]:focus{outline:2px solid var(--oro);outline-offset:1px}
 /* ---- mazzo ---- */
 .deckbox{position:absolute;right:0;top:2px;display:flex;align-items:center;gap:2px}
 .deckbox .cnt{font-size:11px;color:var(--dim);margin-right:5px}
+/* Il dorso: reticolo a rombi su rosso, come i mazzi napoletani da bar.
+   Due trame incrociate a 45° più un punto luce; la cornice è nelle ombre inset. */
+.backcard,.opp .mini i{
+  --dorso:repeating-linear-gradient(45deg,rgba(246,238,220,.13) 0 1px,transparent 1px 7px),
+    repeating-linear-gradient(-45deg,rgba(246,238,220,.13) 0 1px,transparent 1px 7px),
+    radial-gradient(120% 90% at 50% 0%,rgba(255,255,255,.13),transparent 62%),
+    linear-gradient(160deg,#9C3029,#5E1A16);
+  --dorso-sz:auto;
+  --dorso-om:inset 0 0 0 1px rgba(246,238,220,.22),inset 0 0 0 3px rgba(0,0,0,.16)}
 .backcard{width:46px;height:70px;border-radius:6px;border:1px solid #40100D;
-  background:repeating-linear-gradient(45deg,rgba(0,0,0,.16) 0 4px,transparent 4px 8px),
-  linear-gradient(160deg,#8E2A24,#5E1A16);box-shadow:0 2px 6px rgba(0,0,0,.35)}
+  background:var(--dorso);background-size:var(--dorso-sz);background-position:center;
+  box-shadow:var(--dorso-om),0 2px 6px rgba(0,0,0,.35)}
 .trumpslot{transform:rotate(90deg);margin-left:-18px}
 .trumpslot .card{--cw:52px}
 
 /* ---- mano ---- */
-.hand{display:flex;gap:8px;justify-content:center;padding-top:12px;align-items:flex-end;
-  min-height:calc(var(--cw)*1.517 + 16px)}
-.slot{--r:0deg;padding:0;border-radius:10px;position:relative;animation:galleggia 3.8s ease-in-out infinite}
-.slot:nth-child(1){--r:-3deg;animation-delay:-1.3s}
-.slot:nth-child(2){--r:.5deg;animation-delay:-.2s}
-.slot:nth-child(3){--r:3deg;animation-delay:-2.4s}
-@keyframes galleggia{0%,100%{transform:translateY(0) rotate(var(--r))}
-  50%{transform:translateY(-5px) rotate(calc(var(--r) + 1deg))}}
+/* Ventaglio: le carte si sovrappongono e ruotano attorno a un perno
+   sotto la mano, così stanno su un arco invece che affiancate. */
+.hand{display:flex;gap:0;justify-content:center;padding-top:16px;align-items:flex-end;
+  min-height:calc(var(--cw)*1.517 + 34px)}
+.slot{--r:0deg;padding:0;border-radius:10px;position:relative;
+  transform:rotate(var(--r));transform-origin:50% 132%;transition:transform .2s ease}
+.slot+.slot{margin-left:calc(var(--cw) * -.2)}
+.slot:nth-child(1){--r:-7deg}
+.slot:nth-child(2){--r:0deg}
+.slot:nth-child(3){--r:7deg}
+.slot:only-child{--r:0deg}
+.slot:first-child:nth-last-child(2){--r:-4.5deg}
+.slot:first-child:nth-last-child(2)~.slot{--r:4.5deg}
 .slot .card{animation:dealIn .4s cubic-bezier(.2,1.3,.4,1) both;transition:transform .16s cubic-bezier(.2,1.6,.4,1),box-shadow .16s}
 .slot:nth-child(2) .card{animation-delay:.06s}
 .slot:nth-child(3) .card{animation-delay:.12s}
 .slot:disabled{opacity:.58;filter:saturate(.72)}
 .slot.playable:not(:disabled){cursor:pointer}
+.slot.playable:not(:disabled):active{z-index:4}
 .slot.playable:not(:disabled):active .card{transform:translateY(-16px) scale(1.07) rotate(-1deg);
   box-shadow:0 16px 26px rgba(0,0,0,.45)}
-.slot.gone{animation:none}
+.slot.gone{pointer-events:none}
 @keyframes dealIn{from{opacity:0;transform:translateY(40px) scale(.8) rotate(-8deg)}}
 .slot .brisc-flag{position:absolute;top:5px;right:5px;width:11px;height:11px;border-radius:50%;
   background:var(--oro);box-shadow:0 0 0 2px rgba(0,0,0,.25);z-index:3}
@@ -183,8 +222,8 @@ input[type=text]:focus{outline:2px solid var(--oro);outline-offset:1px}
 .board .bc .card{transition:transform .15s}
 .vuoto{color:var(--dim);font-size:13px;font-style:italic}
 .opzioni{display:grid;gap:8px;margin-top:12px}
-.opz{display:flex;align-items:center;gap:8px;padding:10px;border-radius:12px;background:rgba(0,0,0,.24);
-  border:1px solid var(--felt-line);width:100%;text-align:left}
+.opz{display:flex;align-items:center;gap:8px;padding:10px;border-radius:12px;background:var(--su-alto);
+  box-shadow:var(--su-alto-om);border:1px solid var(--felt-line);width:100%;text-align:left}
 .opz .mini2{display:flex;gap:4px}
 .opz .card{--cw:44px}
 .opz span{font-size:13px;color:var(--dim);margin-left:auto}
@@ -193,8 +232,8 @@ input[type=text]:focus{outline:2px solid var(--oro);outline-offset:1px}
 
 /* ---- punteggi ---- */
 .scores{display:flex;flex-wrap:wrap;gap:7px;justify-content:center;margin-top:10px}
-.sc{flex:1 1 84px;max-width:180px;text-align:center;padding:8px 6px;border-radius:10px;background:rgba(0,0,0,.2);
-  border:1px solid var(--felt-line)}
+.sc{flex:1 1 84px;max-width:180px;text-align:center;padding:8px 6px;border-radius:10px;
+  background:var(--su-alto);box-shadow:var(--su-alto-om);border:1px solid var(--felt-line)}
 .sc.mine{background:rgba(214,154,36,.1)}
 .sc.win{border-color:var(--oro)}
 .sc .lbl{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);
@@ -226,7 +265,8 @@ input[type=text]:focus{outline:2px solid var(--oro);outline-offset:1px}
 .tbl tr.me td{color:#F6EEDC}
 .tbl tr.me td:first-child::after{content:" · tu";color:var(--dim);font-size:12px}
 .ranks{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
-.rank{padding:6px 9px;border-radius:8px;background:rgba(0,0,0,.25);border:1px solid var(--felt-line);font-size:13px}
+.rank{padding:6px 9px;border-radius:8px;background:var(--su-alto);box-shadow:var(--su-alto-om);
+  border:1px solid var(--felt-line);font-size:13px}
 .rank b{color:var(--oro);font-family:var(--display);font-size:16px;margin-right:5px}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
@@ -245,6 +285,18 @@ const SUITS=[{id:'denari',nome:'Denari',col:'#D69A24'},{id:'coppe',nome:'Coppe',
              {id:'spade',nome:'Spade',col:'#2B5F86'},{id:'bastoni',nome:'Bastoni',col:'#2C7A50'}];
 const PT={1:11,3:10,10:4,9:3,8:2}, STR={1:10,3:9,10:8,9:7,8:6,7:5,6:4,5:3,4:2,2:1};
 const NOMI={1:'Asso',8:'Fante',9:'Cavallo',10:'Re'};
+/* Icone disegnate a mano: le emoji cambiano faccia su ogni sistema
+   e si portano dietro il loro colore. Queste seguono currentColor. */
+const svg=d=>`<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
+const ICO={
+  punti:svg('<path d="M4 20h16"/><path d="M7.5 20v-5.5"/><path d="M12 20V7"/><path d="M16.5 20v-8.5"/>'),
+  aiuto:svg('<circle cx="12" cy="12" r="8.6"/><path d="M9.4 9.4a2.7 2.7 0 1 1 3.3 3c-.5.2-.8.6-.8 1.2v.5"/>'
+    +'<circle cx="12" cy="17" r=".95" fill="currentColor" stroke="none"/>'),
+  esci:svg('<path d="M6.5 6.5l11 11"/><path d="M17.5 6.5l-11 11"/>'),
+  audioSi:svg('<path d="M4 9.4h3.4L11.8 5.6v12.8L7.4 14.6H4z"/><path d="M15.2 9.4a3.8 3.8 0 0 1 0 5.2"/>'
+    +'<path d="M17.9 6.9a7.4 7.4 0 0 1 0 10.2"/>'),
+  audioNo:svg('<path d="M4 9.4h3.4L11.8 5.6v12.8L7.4 14.6H4z"/><path d="M15.6 9.9l4.6 4.2"/><path d="M20.2 9.9l-4.6 4.2"/>')
+};
 const pts=c=>PT[c.r]||0;
 const nomeCarta=c=>(NOMI[c.r]||c.r)+' di '+SUITS[c.s].nome;
 function cardHTML(c,o){o=o||{};
@@ -593,7 +645,8 @@ function paint(err){
   suoniDiff();
 }
 const conn=()=>`<span class="dot ${connected?'on':''}"></span><span>${connected?'in linea':'ricollego…'}</span>`;
-const mutoBtn=()=>`<button id="mu" title="Suoni">${muto?'🔇':'🔊'}</button>`;
+const mutoBtn=()=>`<button id="mu" title="${muto?'Riattiva i suoni':'Silenzia'}" aria-label="${
+  muto?'Riattiva i suoni':'Silenzia'}">${muto?ICO.audioNo:ICO.audioSi}</button>`;
 function legaMuto(){ const b=$('mu'); if(b) b.onclick=()=>{muto=!muto;localStorage.bt_mute=muto?'1':'0';if(!muto)SND.entra();paint();}; }
 
 function invito(cod,err){
@@ -639,7 +692,8 @@ function lobby(err){
   <p class="err">${err||''}</p>
   <button class="btn ghost" id="reg" style="margin-top:6px">Non so giocare a briscola</button>
   <button class="btn ghost" id="install" style="margin-top:8px">Installa l'app sul computer</button>
-  <div class="topbar" style="justify-content:center;padding-top:14px">${conn()}<span style="margin-left:8px">${muto?'🔇':'🔊'}</span></div>
+  <div class="topbar" style="justify-content:center;padding-top:14px">${conn()}<span style="margin-left:8px;display:grid" aria-label="${
+    muto?'Suoni spenti':'Suoni accesi'}">${muto?ICO.audioNo:ICO.audioSi}</span></div>
   <p class="hint" style="text-align:center;font-size:11px">Carte del mazzo napoletano tradizionale.</p>`;
   const nome=()=>($('nm').value||'').trim().slice(0,12);
   $('crea').onclick=()=>{ if(!nome())return paint('Scrivi un nome, così gli altri sanno chi sei.');
@@ -666,7 +720,7 @@ function attesaConn(err){
 function stanza(){
   const k=S.seats.length, sq=S.teams&&k%2===0&&k>=4, liberi=6-k;
   $('app').innerHTML=`
-  <div class="topbar">${conn()}<span class="sp"></span>${mutoBtn()}<button id="rg">?</button><button id="x">Esci</button></div>
+  <div class="topbar">${conn()}<span class="sp"></span>${mutoBtn()}<button id="rg" title="Regole" aria-label="Regole">${ICO.aiuto}</button><button id="x">Esci</button></div>
   <div class="roomcode">${S.code}</div>
   <div id="qr"></div>
   <p class="lede" style="font-size:14px">Fai inquadrare il codice, o detta le quattro lettere.</p>
@@ -726,7 +780,7 @@ function tavolo(){
   $('app').innerHTML=`
   <div class="topbar">${conn()}<span class="sp"></span>
     <span class="brisc">Briscola <b style="color:${SUITS[S.trumpSuit].col}">${SUITS[S.trumpSuit].nome}</b></span>
-    ${mutoBtn()}<button id="cl">📊</button><button id="rg">?</button><button id="x">✕</button></div>
+    ${mutoBtn()}<button id="cl" title="Punteggi" aria-label="Punteggi">${ICO.punti}</button><button id="rg" title="Regole" aria-label="Regole">${ICO.aiuto}</button><button id="x" title="Esci dal tavolo" aria-label="Esci dal tavolo">${ICO.esci}</button></div>
   <div class="opps">${opps.map(i=>`<span class="opp ${turn===i?'turn':''}" data-seat="${i}">
     <span>${nomeDi(i)}${S.teams&&groupOf(i,S)===gm?' · con te':''}</span>
     ${S.tr&&S.tr[i]?`<b>${S.tr[i]}</b>`:''}
@@ -803,7 +857,7 @@ function tavoloScopa(){
   $('app').innerHTML=`
   <div class="topbar">${conn()}<span class="sp"></span>
     <span class="brisc">Scopa</span>
-    ${mutoBtn()}<button id="cl">📊</button><button id="rg">?</button><button id="x">✕</button></div>
+    ${mutoBtn()}<button id="cl" title="Punteggi" aria-label="Punteggi">${ICO.punti}</button><button id="rg" title="Regole" aria-label="Regole">${ICO.aiuto}</button><button id="x" title="Esci dal tavolo" aria-label="Esci dal tavolo">${ICO.esci}</button></div>
   <div class="opps">${opps.map(i=>`<span class="opp ${turn===i?'turn':''}" data-seat="${i}">
     <span>${nomeDi(i)}${S.teams&&groupOf(i,S)===gm?' · con te':''}</span>
     <b>${(S.taken[i]||[]).length}</b>${S.scope[i]?`<span style="color:var(--oro)">${'★'.repeat(Math.min(S.scope[i],3))}</span>`:''}</span>`).join('')}</div>
