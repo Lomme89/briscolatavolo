@@ -9,7 +9,7 @@ In produzione su GitHub Pages: `https://lomme89.github.io/briscolatavolo/`
 ## File
 
 ```
-index.html          tutto il gioco: markup, stile, motore, rete (~760 KB)
+index.html          tutto il gioco: markup, stile, motore, rete (~840 KB)
 manifest.json       manifest PWA
 sw.js               service worker, cache del guscio
 .nojekyll           impedisce a GitHub Pages di processare i file
@@ -109,6 +109,18 @@ seme e valore. Righe = semi nell'ordine `SUITS`, colonne = valori 1..10.
 
 Il tre e il quattro di denari sono ricostruiti a mano, perché gli originali avevano il
 numero di monete sbagliato.
+
+Il dorso non è un'immagine: è un reticolo a rombi fatto di gradienti CSS, definito una
+volta sola su `.backcard, .opp .mini i` e riusato da entrambi.
+
+## Font
+
+Il carattere da titoli è **EB Garamond** (SIL OFL 1.1), sottoinsieme latino, variabile
+400–600, incorporato in base64 dentro il `@font-face` in cima allo `<style>` (~44 KB).
+È incorporato e non linkato perché Palatino, il vecchio primo termine dello stack, non
+esiste su Android né su iOS: titolo, codice del tavolo e punteggi cambiavano faccia su
+ogni telefono. Le cifre sono minuscole di default; dove i numeri si allineano in colonna
+(`.sc .val`, `.tbl td.num`) sono riportate ad alte e a passo fisso.
 
 ## Test
 
