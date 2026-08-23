@@ -144,6 +144,23 @@ input[type=text]:focus{outline:2px solid var(--oro);outline-offset:1px}
   border:1px solid var(--card-edge);box-shadow:0 4px 12px rgba(0,0,0,.34);display:block}
 .card.trump{outline:2px solid var(--oro);outline-offset:-2px}
 
+/* ---- scopa ---- */
+.board{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;align-items:center;
+  min-height:calc(var(--pw)*1.517 + 10px);padding:4px}
+.board .card{--cw:var(--pw)}
+.board .bc{position:relative;animation:dealIn .35s cubic-bezier(.2,1.3,.4,1) both}
+.board .bc.sel .card{outline:2px solid var(--oro);outline-offset:2px;transform:translateY(-6px)}
+.board .bc .card{transition:transform .15s}
+.vuoto{color:var(--dim);font-size:13px;font-style:italic}
+.opzioni{display:grid;gap:8px;margin-top:12px}
+.opz{display:flex;align-items:center;gap:8px;padding:10px;border-radius:12px;background:rgba(0,0,0,.24);
+  border:1px solid var(--felt-line);width:100%;text-align:left}
+.opz .mini2{display:flex;gap:4px}
+.opz .card{--cw:44px}
+.opz span{font-size:13px;color:var(--dim);margin-left:auto}
+.presi{font-size:11px;color:var(--dim)}
+.scopa-flash{font-family:var(--display);color:var(--oro)}
+
 /* ---- punteggi ---- */
 .scores{display:flex;flex-wrap:wrap;gap:7px;justify-content:center;margin-top:10px}
 .sc{flex:1 1 84px;max-width:180px;text-align:center;padding:8px 6px;border-radius:10px;background:rgba(0,0,0,.2);
@@ -210,6 +227,44 @@ function newDeck(n){const d=[];for(let s=0;s<4;s++)for(let r=1;r<=10;r++)d.push(
  for(let i=d.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[d[i],d[j]]=[d[j],d[i]];}return d;}
 function trickWinner(t,tr){let best=t[0];for(const p of t.slice(1)){const a=p.c,b=best.c;
  if(a.s===b.s){if(STR[a.r]>STR[b.r])best=p;}else if(a.s===tr)best=p;}return best.seat;}
+const PRIM={7:21,6:18,1:16,5:15,4:14,3:13,2:12,8:10,9:10,10:10};
+/* tutte le prese possibili con una carta: se c'e' una carta uguale, quella e' obbligatoria */
+function prese(board,val){
+  const uguali=board.map((c,i)=>({idx:[i]})).filter(o=>board[o.idx[0]].r===val);
+  if(uguali.length) return uguali;
+  const res=[];
+  (function rec(i,acc,som){
+    if(som===val&&acc.length){res.push({idx:acc.slice()});return;}
+    if(som>=val||i>=board.length) return;
+    rec(i+1,acc.concat(i),som+board[i].r); rec(i+1,acc,som);
+  })(0,[],0);
+  const visti=new Set();
+  return res.filter(o=>{const k=o.idx.map(i=>board[i].r).sort().join('-');
+    if(visti.has(k))return false; visti.add(k); return true;});
+}
+function contaScopa(st){
+  const G=nGroups(st), tot=Array(G).fill(0);
+  const carte=Array(G).fill(0), den=Array(G).fill(0), sette=Array(G).fill(-1);
+  const prim=Array.from({length:G},()=>[0,0,0,0]);
+  for(let s=0;s<st.n;s++){
+    const g=groupOf(s,st);
+    tot[g]+=st.scope[s];
+    for(const c of (st.taken[s]||[])){
+      carte[g]++; if(c.s===0)den[g]++;
+      if(c.s===0&&c.r===7) sette[g]=g;
+      if(PRIM[c.r]>prim[g][c.s]) prim[g][c.s]=PRIM[c.r];
+    }
+  }
+  const primT=prim.map(v=>v.reduce((a,b)=>a+b,0));
+  const dett=[];
+  const assegna=(arr,nome)=>{const m=Math.max(...arr);
+    const w=arr.map((v,g)=>v===m?g:-1).filter(g=>g>=0);
+    if(w.length===1){tot[w[0]]++;dett.push(nome+': gruppo '+w[0]);}
+    return w.length===1?w[0]:-1;};
+  const vCarte=assegna(carte,'carte'), vDen=assegna(den,'denari'), vPrim=assegna(primT,'primiera');
+  const vSette=sette.findIndex(x=>x>=0); if(vSette>=0) tot[vSette]++;
+  return {tot,carte,den,primT,sette:vSette,vCarte,vDen,vPrim};
+}
 const nGroups=st=>st.teams?2:st.n;
 const groupOf=(seat,st)=>st.teams?seat%2:seat;
 
@@ -247,7 +302,7 @@ const BROKERS=['wss://broker.emqx.io:8084/mqtt','wss://test.mosquitto.org:8081/m
 let cli=null, bi=0, connected=false;
 let me={id:localStorage.bt_id||('p'+Math.random().toString(36).slice(2,9)),name:localStorage.bt_name||''};
 localStorage.bt_id=me.id;
-let code=null, isHost=false, mySeat=-1, S=null, resolving=false;
+let code=null, isHost=false, mySeat=-1, S=null, resolving=false, invitoVisto=false;
 let prev={turn:null,tavolo:0,fase:null,punti:null};
 const T=c=>({s:'bt/'+c+'/s', a:'bt/'+c+'/a'});
 
@@ -280,7 +335,15 @@ function handle(a){
   }
   else if(a.t==='leave'){ if(S.phase==='gioco')return; S.seats=S.seats.filter(s=>s.id!==a.id); }
   else if(a.t==='squadre'&&S.phase!=='gioco'){ S.teams=!!a.v; }
-  else if((a.t==='start'||a.t==='rematch')&&S.phase!=='gioco'&&S.seats.length>=2) deal();
+  else if(a.t==='gioco'&&S.phase!=='gioco'){ S.game=a.v==='scopa'?'scopa':'briscola'; }
+  else if((a.t==='start'||a.t==='rematch')&&S.phase!=='gioco'&&S.seats.length>=2){
+    if(S.game==='scopa'&&S.seats.length===5) return; else deal();
+  }
+  else if(a.t==='play'&&S.phase==='gioco'&&S.game==='scopa'){
+    const seat=S.seats.findIndex(s=>s.id===a.id);
+    if(seat!==S.turn) return;
+    giocaScopa(seat,a.i,a.o);
+  }
   else if(a.t==='play'&&S.phase==='gioco'){
     const seat=S.seats.findIndex(s=>s.id===a.id);
     if(seat!==S.turn||S.table.length>=S.n) return;
@@ -294,6 +357,7 @@ function handle(a){
 function deal(){
   S.n=S.seats.length;
   if(S.n%2||S.n<4) S.teams=false;
+  if(S.game==='scopa') return dealScopa();
   const d=newDeck(S.n); S.hands={}; for(let i=0;i<S.n;i++)S.hands[i]=d.splice(0,3);
   S.trump=d[d.length-1]; S.trumpSuit=S.trump.s; S.deck=d;
   S.table=[]; S.turn=(S.first||0)%S.n; S.first=(S.first||0)+1;
@@ -301,6 +365,53 @@ function deal(){
   S.tr=Array(S.n).fill(0); S.pp=Array(S.n).fill(0);
   S.albo=S.albo||{}; S.mano=(S.mano||0)+1;
   S.last=null; S.phase='gioco';
+}
+function dealScopa(){
+  const d=newDeck(0);
+  S.hands={}; for(let i=0;i<S.n;i++)S.hands[i]=d.splice(0,3);
+  S.board=d.splice(0,4);
+  S.deck=d; S.trump=null;
+  S.taken=Array.from({length:S.n},()=>[]); S.scope=Array(S.n).fill(0);
+  S.tr=Array(S.n).fill(0); S.pp=Array(S.n).fill(0);
+  S.turn=(S.first||0)%S.n; S.first=(S.first||0)+1;
+  S.points=Array(nGroups(S)).fill(0);
+  S.albo=S.albo||{}; S.mano=(S.mano||0)+1;
+  S.lastTake=null; S.mossa=null; S.phase='gioco';
+}
+function giocaScopa(seat,i,opz){
+  const mano=S.hands[seat], c=mano[i]; if(!c) return;
+  mano.splice(i,1);
+  const opts=prese(S.board,c.r);
+  const ultima=!S.deck.length&&Object.values(S.hands).every(h=>!h.length);
+  if(opts.length){
+    const t=opts[Math.min(Math.max(opz|0,0),opts.length-1)];
+    const presi=t.idx.map(k=>S.board[k]);
+    S.board=S.board.filter((_,k)=>!t.idx.includes(k));
+    S.taken[seat]=S.taken[seat].concat(presi,[c]);
+    S.tr[seat]++; S.pp[seat]+=presi.length+1;
+    S.lastTake=seat;
+    const scopa=!S.board.length&&!ultima;
+    if(scopa) S.scope[seat]++;
+    S.mossa={seat,c,presi:presi.length,scopa};
+  } else {
+    S.board.push(c); S.mossa={seat,c,presi:0,scopa:false};
+  }
+  S.turn=(seat+1)%S.n;
+  if(Object.values(S.hands).every(h=>!h.length)){
+    if(S.deck.length){ for(let k=0;k<S.n;k++) S.hands[(S.turn+k)%S.n]=S.deck.splice(0,3); }
+    else finisciScopa();
+  }
+}
+function finisciScopa(){
+  if(S.lastTake!=null&&S.board.length){
+    S.taken[S.lastTake]=S.taken[S.lastTake].concat(S.board);
+    S.pp[S.lastTake]+=S.board.length; S.board=[];
+  }
+  const r=contaScopa(S);
+  S.points=r.tot; S.esito=r; S.phase='fine';
+  const top=Math.max(...S.points);
+  S.points.forEach((p,gr)=>{ if(p!==top)return;
+    S.seats.forEach((s,i)=>{ if(groupOf(i,S)===gr) S.albo[s.id]=(S.albo[s.id]||0)+1; }); });
 }
 function autoResolve(){
   if(!isHost||!S||S.phase!=='gioco'||resolving||S.table.length!==S.n) return;
@@ -330,7 +441,7 @@ const linkTavolo=()=>location.href.split('#')[0]+'#'+code;
 
 function apri(){
   code=rnd(); isHost=true;
-  S={code,phase:'attesa',seats:[{id:me.id,name:me.name}],teams:true,first:0,albo:{},mano:0}; mySeat=0;
+  S={code,phase:'attesa',game:'briscola',seats:[{id:me.id,name:me.name}],teams:true,first:0,albo:{},mano:0}; mySeat=0;
   cli.subscribe(T(code).a,()=>{ pubState(); });
   location.hash=code; SND.entra(); paint();
 }
@@ -344,7 +455,8 @@ function esci(){
   if(!isHost&&S) send({t:'leave'});
   if(cli){cli.unsubscribe(T(code).s);cli.unsubscribe(T(code).a);}
   if(isHost&&cli) cli.publish(T(code).s,'',{retain:true});
-  code=null;isHost=false;S=null;mySeat=-1;location.hash='';prev={turn:null,tavolo:0,fase:null,punti:null};paint();
+  code=null;isHost=false;S=null;mySeat=-1;location.hash='';invitoVisto=true;
+  prev={turn:null,tavolo:0,fase:null,punti:null};paint();
 }
 
 /* ================= suoni reattivi ================= */
@@ -430,14 +542,39 @@ function paint(err){
   if(!S && !code) return lobby(err);
   if(!S) return attesaConn(err);
   if(S.phase==='attesa') return stanza();
-  tavolo();
+  if(S.game==='scopa') tavoloScopa(); else tavolo();
   suoniDiff();
 }
 const conn=()=>`<span class="dot ${connected?'on':''}"></span><span>${connected?'in linea':'ricollego…'}</span>`;
 const mutoBtn=()=>`<button id="mu" title="Suoni">${muto?'🔇':'🔊'}</button>`;
 function legaMuto(){ const b=$('mu'); if(b) b.onclick=()=>{muto=!muto;localStorage.bt_mute=muto?'1':'0';if(!muto)SND.entra();paint();}; }
 
+function invito(cod,err){
+  $('app').innerHTML=`
+  <div class="brand"><h1>Briscola<em>al tavolo</em></h1></div><div class="rule"></div>
+  <p class="lede">Ti hanno invitato al tavolo</p>
+  <div class="roomcode">${cod}</div>
+  <div class="panel">
+    <label class="f" for="nm">Come ti chiamano</label>
+    <input type="text" id="nm" maxlength="12" placeholder="Il tuo nome" value="${me.name}">
+    <button class="btn" id="go">Entra e siediti</button>
+  </div>
+  <p class="err">${err||''}</p>
+  <button class="btn ghost" id="altro" style="margin-top:4px">Non è il mio tavolo, apri il menu</button>
+  <div class="topbar" style="justify-content:center;padding-top:14px">${conn()}</div>`;
+  const vai=()=>{ const nome=($('nm').value||'').trim().slice(0,12);
+    if(!nome) return invito(cod,'Scrivi un nome, così gli altri sanno chi sei.');
+    me.name=nome; localStorage.bt_name=nome;
+    if(!connected) return invito(cod,'Ancora non sono collegato. Un attimo e riprova.');
+    entra(cod); };
+  $('go').onclick=vai;
+  $('nm').onkeydown=e=>{ if(e.key==='Enter') vai(); };
+  $('altro').onclick=()=>{ location.hash=''; invitoVisto=true; paint(); };
+  if(me.name) setTimeout(()=>$('go').focus(),50);
+}
 function lobby(err){
+  const inv=location.hash.replace('#','').toUpperCase();
+  if(!invitoVisto&&/^[A-Z]{4}$/.test(inv)) return invito(inv,err);
   $('app').innerHTML=`
   <div class="brand"><h1>Briscola<em>al tavolo</em></h1></div><div class="rule"></div>
   <p class="lede">Carte napoletane per chi è già seduto insieme e non ha il mazzo. Un codice, ognuno col suo telefono.</p>
@@ -466,7 +603,7 @@ function lobby(err){
     me.name=nome(); localStorage.bt_name=me.name;
     if(!connected)return paint('Ancora non sono collegato. Un attimo e riprova.'); entra(c); };
   $('reg').onclick=regole;
-  const h=location.hash.replace('#','').toUpperCase(); if(h.length===4) $('cd').value=h;
+  const hh=location.hash.replace('#','').toUpperCase(); if(hh.length===4) $('cd').value=hh;
 }
 
 function attesaConn(err){
@@ -486,16 +623,26 @@ function stanza(){
   <ul class="seatlist">${S.seats.map((s,i)=>`<li class="${s.id===me.id?'me':''}"><span class="n">${i+1}</span>${s.name}${s.id===me.id?' · tu':''}${S.albo&&S.albo[s.id]?`<span class="team">${S.albo[s.id]} man${S.albo[s.id]>1?'i':'o'} vint${S.albo[s.id]>1?'e':'a'}</span>`:(sq?`<span class="team">Squadra ${i%2?'B':'A'}</span>`:'')}</li>`).join('')
     +(liberi>0?`<li class="empty"><span class="n">+</span>${liberi} post${liberi>1?'i':'o'} liber${liberi>1?'i':'o'}</li>`:'')}</ul>
   ${isHost?`
-    ${k===4||k===6?`<div class="seg" style="margin-top:12px" id="sq">
+    <div class="seg" style="margin-top:12px" id="gm">
+      <button data-v="briscola" aria-pressed="${S.game!=='scopa'}">Briscola</button>
+      <button data-v="scopa" aria-pressed="${S.game==='scopa'}">Scopa</button></div>
+    ${k===4||k===6?`<div class="seg" style="margin-top:8px" id="sq">
       <button data-v="1" aria-pressed="${S.teams?'true':'false'}">A squadre</button>
       <button data-v="0" aria-pressed="${S.teams?'false':'true'}">Ognuno per sé</button></div>`:''}
-    <button class="btn" id="via" ${k<2?'disabled':''}>${k<2?'Serve almeno un altro giocatore':(S.mano?'Nuova mano · in '+k:'Distribuisci le carte · in '+k)}</button>
+    <button class="btn" id="via" ${k<2||(S.game==='scopa'&&k===5)?'disabled':''}>${
+      k<2?'Serve almeno un altro giocatore':
+      (S.game==='scopa'&&k===5)?'A scopa non si gioca in cinque':
+      (S.mano?'Nuova mano · in '+k:'Distribuisci le carte · in '+k)}</button>
     <button class="btn ghost" id="link">Copia il link</button>`
   :`<p class="hint" style="text-align:center;margin-top:16px">Siete in ${k}. Le carte le dà chi ha aperto il tavolo.</p>`}
-  <p class="hint">${k===3?'In tre si toglie un due dal mazzo: i punti restano 120. ':''}${k===6?'In sei si tolgono i quattro due: i punti restano 120. ':''}Chi ha aperto il tavolo fa da mazziere e deve tenere la pagina aperta.</p>`;
+  <p class="hint">${S.game==='scopa'
+    ? 'A scopa si gioca in due, tre, quattro o sei. '
+    : (k===3?'In tre si toglie un due dal mazzo: i punti restano 120. ':'')+(k===6?'In sei si tolgono i quattro due: i punti restano 120. ':'')
+  }Chi ha aperto il tavolo fa da mazziere e deve tenere la pagina aperta.</p>`;
   $('x').onclick=esci; $('rg').onclick=regole; legaMuto();
   if($('via'))$('via').onclick=()=>send({t:'start'});
   if($('sq'))document.querySelectorAll('#sq button').forEach(b=>b.onclick=()=>send({t:'squadre',v:+b.dataset.v}));
+  if($('gm'))document.querySelectorAll('#gm button').forEach(b=>b.onclick=()=>send({t:'gioco',v:b.dataset.v}));
   if($('link'))$('link').onclick=()=>{navigator.clipboard?.writeText(linkTavolo());$('link').textContent='Link copiato ✓';};
   try{ if(window.QRCode) new QRCode($('qr'),{text:linkTavolo(),width:172,height:172,
       colorDark:'#102A22',colorLight:'#F3E7CD',correctLevel:QRCode.CorrectLevel.M}); }
@@ -579,6 +726,98 @@ function tavolo(){
   anim={len,mano:S.mano,punti:pStr};
 }
 
+function tavoloScopa(){
+  const n=S.n, hand=(S.hands&&S.hands[mySeat])||[], turn=S.turn, fin=S.phase==='fine';
+  const gm=groupOf(mySeat,S), G=nGroups(S);
+  const opps=[]; for(let k=1;k<n;k++)opps.push((mySeat+k)%n);
+  const top=Math.max(...S.points), vinc=S.points.map((p,g)=>p===top?g:-1).filter(g=>g>=0);
+  document.documentElement.style.setProperty('--pw', S.board.length>7?'52px':(S.board.length>4?'60px':'70px'));
+  document.documentElement.style.setProperty('--cw','clamp(88px,26vw,118px)');
+
+  let barra;
+  if(fin){
+    let t; if(vinc.length>1) t=`Pari a <b>${top}</b>`;
+    else if(vinc[0]===gm) t=S.teams?`Avete vinto <b>${top}</b> a ${Math.min(...S.points)}`:`Hai vinto con <b>${top}</b>`;
+    else t=S.teams?`Vince l'altra squadra con <b>${top}</b>`:`Vince <b>${nomeDi(vinc[0])}</b> con ${top}`;
+    barra=`<p class="turnbar esito">${t}</p>`;
+  } else if(turn===mySeat){
+    barra=`<p class="turnbar mine">Tocca a te · cala una carta</p>`;
+  } else {
+    const m=S.mossa;
+    barra=`<p class="turnbar"><span class="spin"></span>${m&&m.scopa?`<span class="scopa-flash">Scopa di ${m.seat===mySeat?'tuo':nomeDi(m.seat)}!</span> · `:''}Sta giocando <b>${nomeDi(turn)}</b></p>`;
+  }
+  const eti=g=>S.teams?(g===gm?'La tua squadra':'Altra squadra'):(g===mySeat?'Tu':nomeDi(g));
+
+  $('app').innerHTML=`
+  <div class="topbar">${conn()}<span class="sp"></span>
+    <span class="brisc">Scopa</span>
+    ${mutoBtn()}<button id="cl">📊</button><button id="rg">?</button><button id="x">✕</button></div>
+  <div class="opps">${opps.map(i=>`<span class="opp ${turn===i?'turn':''}" data-seat="${i}">
+    <span>${nomeDi(i)}${S.teams&&groupOf(i,S)===gm?' · con te':''}</span>
+    <b>${(S.taken[i]||[]).length}</b>${S.scope[i]?`<span style="color:var(--oro)">${'★'.repeat(Math.min(S.scope[i],3))}</span>`:''}</span>`).join('')}</div>
+  <div class="felt">
+    <div class="deckbox"><span class="cnt">${S.deck.length}</span>
+      ${S.deck.length?'<span class="backcard"></span>':'<span style="font-size:11px;color:var(--dim)">mazzo finito</span>'}</div>
+    <div class="board" id="bd">${S.board.length
+      ? S.board.map((c,i)=>`<span class="bc" data-b="${i}">${cardHTML(c)}</span>`).join('')
+      : '<span class="vuoto">tavolo pulito</span>'}</div>
+    ${barra}
+    ${!fin&&S.mossa?`<p class="presi">${S.mossa.seat===mySeat?'Hai':nomeDi(S.mossa.seat)+' ha'} ${S.mossa.presi?`preso ${S.mossa.presi} cart${S.mossa.presi>1?'e':'a'}`:'lasciato '+nomeCarta(S.mossa.c)}</p>`:''}
+  </div>
+  <div class="scores">${Array.from({length:G},(_,g)=>`
+    <div class="sc ${fin&&vinc.includes(g)?'win':''}${g===gm?' mine':''}">
+      <div class="lbl">${eti(g)}</div><div class="val">${S.points[g]}</div></div>`).join('')}</div>
+  ${fin?(isHost?'<button class="btn" id="ri">Un\'altra mano</button>'
+               :'<p class="hint" style="text-align:center">Il mazziere può dare di nuovo.</p>')
+       :`<div class="hand">${hand.map((c,i)=>`<button class="slot ${turn===mySeat?'playable':''}" data-i="${i}"
+          ${turn===mySeat?'':'disabled'}>${cardHTML(c)}</button>`).join('')}</div>`}`;
+  $('x').onclick=esci; $('rg').onclick=regole; $('cl').onclick=classifica; legaMuto();
+  if($('ri'))$('ri').onclick=()=>send({t:'rematch'});
+  document.querySelectorAll('.slot').forEach(b=>b.onclick=()=>{
+    if(b.disabled) return;
+    const i=+b.dataset.i, c=hand[i], opts=prese(S.board,c.r);
+    if(opts.length>1) return scegliPresa(c,i,opts);
+    const el=b.querySelector('.card'); daDove=el?el.getBoundingClientRect():null;
+    b.classList.add('gone');
+    if(el&&!RM) el.animate([{transform:'translateY(-16px) scale(1.07)',opacity:1},
+      {transform:'translateY(-48px) scale(.86)',opacity:0}],{duration:200,easing:'ease-in',fill:'forwards'});
+    document.querySelectorAll('.slot').forEach(o=>o.disabled=true);
+    setTimeout(()=>send({t:'play',i}),110);
+  });
+  // giostra
+  const nuovaMano=S.mano!==anim.mano;
+  if(S.mossa&&!nuovaMano&&S.mossa!==anim.mossa){
+    if(S.mossa.presi){ (S.mossa.seat===mySeat?SND.presaMia:SND.presa)(); if(S.mossa.scopa){scossa();SND.finePro();} }
+    else { SND.giocata(); requestAnimationFrame(()=>{
+      const b=[...document.querySelectorAll('.bc')].pop(); if(b) lanciaSu(b,S.mossa.seat); }); }
+  }
+  anim={len:0,mano:S.mano,punti:S.points.join(),mossa:S.mossa};
+}
+function lanciaSu(el,seat){
+  if(RM) return;
+  let from=(seat===mySeat&&daDove)?daDove:rectOf('.opp[data-seat="'+seat+'"]');
+  daDove=null; const to=el.getBoundingClientRect();
+  if(!from) from={left:to.left,top:-140,width:to.width*.6,height:to.height*.6};
+  const a=centro(from), b=centro(to), dx=a.x-b.x, dy=a.y-b.y;
+  const sc=Math.max(.3,Math.min(1.2,from.width/to.width)), rot=(dx>0?-1:1)*(10+Math.random()*12);
+  el.animate([
+    {transform:`translate(${dx}px,${dy}px) rotate(${rot}deg) scale(${sc})`,opacity:.6},
+    {transform:`translate(${dx*.3}px,${dy*.3-16}px) rotate(${rot*.25}deg) scale(${(sc+1)/2})`,opacity:1,offset:.58},
+    {transform:'translate(0,0) scale(1.07)',opacity:1,offset:.82},
+    {transform:'none',opacity:1}],{duration:430,easing:'cubic-bezier(.25,.9,.3,1)'});
+}
+function scegliPresa(c,i,opts){
+  pannello(`<h2>Cosa prendi?</h2>
+  <p style="color:var(--dim);font-size:13.5px">Cali ${nomeCarta(c)}. Puoi portarti via una di queste combinazioni.</p>
+  <div class="opzioni">${opts.map((o,k)=>`<button class="opz" data-k="${k}">
+    <span class="mini2">${o.idx.map(j=>cardHTML(S.board[j])).join('')}</span>
+    <span>${o.idx.length>1?o.idx.map(j=>S.board[j].r).join(' + ')+' = '+c.r:'carta uguale'}</span></button>`).join('')}</div>`);
+  document.querySelectorAll('.opz').forEach(b=>b.onclick=()=>{
+    chiudi(); document.querySelectorAll('.slot').forEach(o=>o.disabled=true);
+    send({t:'play',i,o:+b.dataset.k});
+  });
+}
+
 /* ================= pannelli ================= */
 function chiudi(){ $('ov').innerHTML=''; }
 function pannello(html){
@@ -591,17 +830,26 @@ function classifica(){
   if(!S||!S.seats) return;
   const righe=S.seats.map((s,i)=>({s,i,tr:(S.tr&&S.tr[i])||0,pp:(S.pp&&S.pp[i])||0,al:(S.albo&&S.albo[s.id])||0}))
     .sort((a,b)=>b.pp-a.pp||b.tr-a.tr);
+  const sc=S.game==='scopa';
   pannello(`<h2>Come sta andando</h2>
-   <p style="color:var(--dim);font-size:13px;margin-top:2px">Mano numero ${S.mano||1}. Le prese sono i giri vinti in questa mano, i punti quelli raccolti da ciascuno.</p>
-   <table class="tbl"><thead><tr><th>Giocatore</th><th style="text-align:right">Prese</th>
-     <th style="text-align:right">Punti</th><th style="text-align:right">Mani vinte</th></tr></thead>
+   <p style="color:var(--dim);font-size:13px;margin-top:2px">Mano numero ${S.mano||1}. ${sc
+     ?'Le prese sono le volte che hai portato via carte, e accanto quante carte hai in totale.'
+     :'Le prese sono i giri vinti in questa mano, i punti quelli raccolti da ciascuno.'}</p>
+   <table class="tbl"><thead><tr><th>Giocatore</th><th style="text-align:right">${sc?'Prese':'Prese'}</th>
+     <th style="text-align:right">${sc?'Carte':'Punti'}</th><th style="text-align:right">${sc?'Scope':'Mani vinte'}</th></tr></thead>
    <tbody>${righe.map(r=>`<tr class="${r.i===mySeat?'me':''}"><td>${r.s.name}</td>
-     <td class="num">${r.tr}</td><td class="num">${r.pp}</td><td class="num">${r.al}</td></tr>`).join('')}</tbody></table>
+     <td class="num">${r.tr}</td><td class="num">${sc?(S.taken[r.i]||[]).length:r.pp}</td>
+     <td class="num">${sc?(S.scope[r.i]||0):r.al}</td></tr>`).join('')}</tbody></table>
+   ${sc&&S.esito?`<h3>Punti della mano</h3><p>Carte: ${S.esito.vCarte<0?'pari, nessun punto':'al gruppo '+(S.esito.vCarte+1)}.
+     Denari: ${S.esito.vDen<0?'pari':'al gruppo '+(S.esito.vDen+1)}.
+     Primiera: ${S.esito.vPrim<0?'pari':'al gruppo '+(S.esito.vPrim+1)} (${S.esito.primT.join(' contro ')}).
+     Settebello: ${S.esito.sette<0?'non preso':'al gruppo '+(S.esito.sette+1)}.</p>`:''}
    ${S.teams?`<h3>Squadre</h3><p>Squadra A: ${S.seats.filter((s,i)=>i%2===0).map(s=>s.name).join(', ')} — ${S.points[0]} punti<br>
    Squadra B: ${S.seats.filter((s,i)=>i%2===1).map(s=>s.name).join(', ')} — ${S.points[1]} punti</p>`:''}`);
 }
 function regole(){
-  pannello(`<h2>Le regole in breve</h2>
+  if(S&&S.game==='scopa') return regoleScopa();
+  pannello(`<h2>La briscola in breve</h2>
   <p>All'inizio si scopre una carta: il suo seme è la <b>briscola</b>. Quel seme batte tutti gli altri per tutta la mano. Nella tua mano le carte di briscola hanno un pallino dorato.</p>
   <p>A turno ognuno cala una carta. Non c'è obbligo di rispondere al seme: puoi giocare quello che vuoi. Vince il giro chi ha calato la briscola più alta; se nessuno ne ha giocata, chi ha la carta più alta del seme di chi ha aperto il giro. Le carte di un seme diverso, senza briscola, non contano.</p>
   <h3>Quanto vale ogni carta</h3>
@@ -616,6 +864,23 @@ function regole(){
   <p>Finché il mazzo dura, dopo ogni giro si pesca una carta a testa, cominciando da chi ha vinto. Quando finisce, si gioca con quello che si ha in mano.</p>`);
 }
 
+function regoleScopa(){
+  pannello(`<h2>La scopa in breve</h2>
+  <p>In tavola ci sono quattro carte scoperte e tu ne hai tre in mano. A turno se ne cala una: se sul tavolo c'è una carta dello stesso valore, la prendi; altrimenti puoi prendere due o più carte che sommate fanno il valore della tua.</p>
+  <p>Se c'è una carta uguale sei obbligato a prendere quella, non la somma. Quando le combinazioni possibili sono più d'una te le faccio scegliere.</p>
+  <p>Se non prendi niente, la tua carta resta sul tavolo per gli altri.</p>
+  <h3>La scopa</h3>
+  <p>Se ripulisci il tavolo lasciandolo vuoto fai <b>scopa</b>: un punto secco. Non vale sull'ultima carta della mano. Le carte rimaste sul tavolo alla fine vanno a chi ha preso per ultimo.</p>
+  <h3>I punti a fine mano</h3>
+  <div class="ranks">
+    <span class="rank"><b>1</b>più carte prese</span>
+    <span class="rank"><b>1</b>più denari</span>
+    <span class="rank"><b>1</b>settebello, il 7 di denari</span>
+    <span class="rank"><b>1</b>primiera</span>
+    <span class="rank"><b>+1</b>per ogni scopa</span>
+  </div>
+  <p>La primiera si calcola prendendo la carta migliore per ciascun seme e sommandone il valore speciale: il sette vale 21, il sei 18, l'asso 16, poi cinque 15, quattro 14, tre 13, due 12, e le figure 10. Chi fa la somma più alta prende il punto. In caso di parità il punto non lo prende nessuno.</p>`);
+}
 connect(()=>paint());
 paint();
 </script>
