@@ -122,6 +122,24 @@ esiste su Android né su iOS: titolo, codice del tavolo e punteggi cambiavano fa
 ogni telefono. Le cifre sono minuscole di default; dove i numeri si allineano in colonna
 (`.sc .val`, `.tbl td.num`) sono riportate ad alte e a passo fisso.
 
+## Misure delle carte
+
+Le carte non hanno misure fisse: `tavolo()` e `tavoloScopa()` scrivono `--cw` (la mano)
+e `--pw` (le carte in tavola) come `clamp(min, min(<larghezza>, <altezza>), max)`. Il
+termine in `vw` tiene conto dei margini della pagina e dei vuoti fra le carte, quello in
+`vh` di quello che sta sopra e sotto il feltro. Senza il secondo, su un telefono basso la
+pagina scrollava; senza il primo, le carte andavano a capo.
+
+Da quattro giocatori in su, e solo sopra i 740px di altezza, le carte calate stanno su più
+file: `--pcols` dice quante per riga e `--pw2` la misura corrispondente, che il CSS sceglie
+al posto di `--pw` dentro la media query. In sei si passa da una cinquantina di pixel al
+doppio. Nella stessa situazione il blocco si sposta a sinistra (`.felt.folto`) per non
+finire sotto il mazzo.
+
+Toccando questi valori, rimisurare: basta caricare `index.html` in un browser headless,
+piazzare uno stato finto e controllare che `scrollHeight` non superi `innerHeight` per
+ogni numero di giocatori e per le varie misure del tavolo di scopa.
+
 ## Test
 
 `harness.js` monta più client jsdom con un broker MQTT finto in-process e li fa giocare

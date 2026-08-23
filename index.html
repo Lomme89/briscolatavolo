@@ -40,6 +40,7 @@
   /* superficie incassata: contenitori che devono arretrare */
   --su-basso:rgba(0,0,0,.26);
   --su-basso-om:inset 0 2px 9px rgba(0,0,0,.3);
+  --dw:clamp(42px,12.5vw,58px);
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{height:100%}
@@ -155,15 +156,26 @@ input[type=text]:focus{outline:2px solid var(--oro);outline-offset:1px}
 
 /* ---- tavolo ---- */
 .felt{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:10px;
-  position:relative;padding:8px 0;min-height:200px}
+  position:relative;padding:8px 6px;min-height:180px}
 .felt::before{content:"";position:absolute;inset:0;border-radius:20px;pointer-events:none;
   background:radial-gradient(58% 48% at 50% 42%,rgba(255,255,255,.055),transparent 68%),
     radial-gradient(78% 66% at 50% 50%,transparent 42%,rgba(6,18,14,.34) 100%);
   box-shadow:inset 0 0 0 1px rgba(255,255,255,.045),inset 0 1px 0 rgba(255,255,255,.06),
     inset 0 0 56px rgba(6,18,14,.3)}
 .played{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;position:relative;align-items:center;
-  min-height:calc(var(--pw)*1.517 + 20px)}
-.playedwrap{display:flex;flex-direction:column;align-items:center;gap:4px;will-change:transform}
+  min-height:calc(var(--pw)*1.517 + 20px);
+}
+/* Su uno schermo alto le carte calate vanno su due file di tre invece che
+   tutte in riga: in sei passano da una cinquantina di pixel al doppio.
+   Sotto i 740px di altezza non c'è spazio per la seconda fila. */
+@media (min-height:740px){
+  .played{--pw:var(--pw2);max-width:calc(var(--pw) * var(--pcols) + var(--pcols) * 6px)}
+  /* Da quattro in su le carte calate arrivavano fin sotto il mazzo. Invece di
+     rimpicciolirle sposto il blocco a sinistra della sua colonna: il mazzo sta
+     al bordo del tavolo, le carte si calano al centro di quel che resta. */
+  .felt.folto .played{margin-right:calc(var(--dw) * 1.9)}
+}
+.playedwrap{display:flex;flex:none;flex-direction:column;align-items:center;gap:4px;will-change:transform}
 .playedwrap small{font-size:11px;color:var(--dim);max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .playedwrap.best small{color:var(--oro)}
 .played .card{--cw:var(--pw)}
@@ -183,8 +195,9 @@ input[type=text]:focus{outline:2px solid var(--oro);outline-offset:1px}
 @keyframes breathe{50%{box-shadow:0 0 0 8px rgba(214,154,36,.13)}}
 
 /* ---- mazzo ---- */
-.deckbox{position:absolute;right:0;top:2px;display:flex;align-items:center;gap:2px}
-.deckbox .cnt{font-size:11px;color:var(--dim);margin-right:5px}
+.deckbox{position:absolute;right:6px;top:6px;display:flex;align-items:center;gap:2px;
+  flex-wrap:wrap;justify-content:flex-end}
+.deckbox .cnt{order:3;width:100%;text-align:right;font-size:11.5px;color:var(--dim);margin:3px 2px 0 0}
 /* Il dorso: reticolo a rombi su rosso, come i mazzi napoletani da bar.
    Due trame incrociate a 45° più un punto luce; la cornice è nelle ombre inset. */
 .backcard,.opp .mini i{
@@ -194,17 +207,18 @@ input[type=text]:focus{outline:2px solid var(--oro);outline-offset:1px}
     linear-gradient(160deg,#9C3029,#5E1A16);
   --dorso-sz:auto;
   --dorso-om:inset 0 0 0 1px rgba(246,238,220,.22),inset 0 0 0 3px rgba(0,0,0,.16)}
-.backcard{width:46px;height:70px;border-radius:6px;border:1px solid #40100D;
+.backcard{width:var(--dw);height:calc(var(--dw)*1.517);border-radius:6px;border:1px solid #40100D;
   background:var(--dorso);background-size:var(--dorso-sz);background-position:center;
   box-shadow:var(--dorso-om),0 2px 6px rgba(0,0,0,.35)}
-.trumpslot{transform:rotate(90deg);margin-left:-18px}
-.trumpslot .card{--cw:52px}
+.trumpslot{transform:rotate(90deg);margin-left:calc(var(--dw) * -.4);
+  margin-right:calc(var(--dw) * .259)}
+.trumpslot .card{--cw:var(--dw)}
 
 /* ---- mano ---- */
 /* Ventaglio: le carte si sovrappongono e ruotano attorno a un perno
    sotto la mano, così stanno su un arco invece che affiancate. */
-.hand{display:flex;gap:0;justify-content:center;padding-top:16px;align-items:flex-end;
-  min-height:calc(var(--cw)*1.517 + 34px)}
+.hand{display:flex;gap:0;justify-content:center;padding-top:14px;align-items:flex-end;
+  min-height:calc(var(--cw)*1.517 + 32px)}
 .slot{--r:0deg;padding:0;border-radius:10px;position:relative;
   transform:rotate(var(--r));transform-origin:50% 132%;transition:transform .2s ease}
 .slot+.slot{margin-left:calc(var(--cw) * -.2)}
@@ -252,7 +266,7 @@ input[type=text]:focus{outline:2px solid var(--oro);outline-offset:1px}
 
 /* ---- punteggi ---- */
 .scores{display:flex;flex-wrap:wrap;gap:7px;justify-content:center;margin-top:10px}
-.sc{flex:1 1 84px;max-width:180px;text-align:center;padding:8px 6px;border-radius:10px;
+.sc{flex:1 1 0;min-width:0;max-width:180px;text-align:center;padding:8px 5px;border-radius:10px;
   background:var(--su-alto);box-shadow:var(--su-alto-om);border:1px solid var(--felt-line)}
 .sc.mine{background:rgba(214,154,36,.1)}
 .sc.win{border-color:var(--oro)}
@@ -289,6 +303,16 @@ input[type=text]:focus{outline:2px solid var(--oro);outline-offset:1px}
 .rank{padding:6px 9px;border-radius:8px;background:var(--su-alto);box-shadow:var(--su-alto-om);
   border:1px solid var(--felt-line);font-size:13px}
 .rank b{color:var(--oro);font-family:var(--display);font-size:16px;margin-right:5px}
+/* Telefoni bassi: si stringono i respiri fra le fasce, che lì valgono
+   più delle proporzioni. */
+@media (max-height:700px){
+  .wrap{padding-top:calc(8px + env(safe-area-inset-top));
+    padding-bottom:calc(12px + env(safe-area-inset-bottom))}
+  .felt{gap:6px;padding:4px 6px;min-height:150px}
+  .opps{margin-bottom:4px}
+  .scores{margin-top:6px}
+  .hand{padding-top:10px}
+}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
@@ -787,8 +811,20 @@ function tavolo(){
   const opps=[]; for(let k=1;k<n;k++)opps.push((mySeat+k)%n);
   const top=Math.max(...S.points), vinc=S.points.map((p,g)=>p===top?g:-1).filter(g=>g>=0);
   const pieno=S.table.length===n, best=pieno?trickWinner(S.table,S.trumpSuit):-1;
-  document.documentElement.style.setProperty('--pw', n>=5?'62px':(n===4?'74px':'86px'));
-  document.documentElement.style.setProperty('--cw','clamp(88px,26vw,118px)');
+  // --pw è la misura in riga sola, --pw2 quella su due file: sceglie il CSS.
+  // Le sottrazioni in px tengono conto dei margini della pagina e dei vuoti
+  // fra una carta e l'altra, che in vw non si possono esprimere.
+  const rad=document.documentElement.style;
+  rad.setProperty('--pcols', n>=5?'3':(n===4?'2':'6'));
+  const unaRiga = n>=5 ? 'clamp(40px,calc(16.6vw - 13px),76px)'
+    : n===4 ? 'clamp(48px,min(calc(25vw - 15px),calc(50vh - 243px)),104px)'
+    : 'clamp(56px,min(calc(33.3vw - 16px),calc(50vh - 243px)),132px)';
+  rad.setProperty('--pw', unaRiga);
+  rad.setProperty('--pw2',
+    n>=5 ? 'clamp(52px,min(calc(25.4vw - 20px),calc(25vh - 134px)),124px)'
+    : n===4 ? 'clamp(52px,min(calc(38vw - 25px),calc(25vh - 122px)),124px)'
+    : unaRiga);
+  rad.setProperty('--cw','clamp(84px,min(32vw,14.5vh),140px)');
 
   let barra;
   if(fin){
@@ -814,7 +850,7 @@ function tavolo(){
     <span>${nomeDi(i)}${S.teams&&groupOf(i,S)===gm?', con te':''}</span>
     ${S.tr&&S.tr[i]?`<b>${S.tr[i]}</b>`:''}
     <span class="mini">${Array(((S.hands&&S.hands[i])||[]).length).fill('<i></i>').join('')}</span></span>`).join('')}</div>
-  <div class="felt">
+  <div class="felt${n>=4?' folto':''}">
     <div class="deckbox"><span class="cnt">${S.deck.length}</span>
       ${S.deck.length>1?'<span class="backcard"></span>':''}
       ${S.deck.length?`<span class="trumpslot">${cardHTML(S.trump,{trump:1})}</span>`:'<span style="font-size:11px;color:var(--dim)">mazzo finito</span>'}</div>
@@ -866,8 +902,14 @@ function tavoloScopa(){
   const gm=groupOf(mySeat,S), G=nGroups(S);
   const opps=[]; for(let k=1;k<n;k++)opps.push((mySeat+k)%n);
   const top=Math.max(...S.points), vinc=S.points.map((p,g)=>p===top?g:-1).filter(g=>g>=0);
-  document.documentElement.style.setProperty('--pw', S.board.length>7?'52px':(S.board.length>4?'60px':'70px'));
-  document.documentElement.style.setProperty('--cw','clamp(88px,26vw,118px)');
+  // Il tavolo di scopa cresce e cala durante la mano: la misura segue il
+  // numero di carte scoperte, con un tetto in vh perché non sfondi in basso.
+  const b=S.board.length, folta=n>=5?22:0;
+  document.documentElement.style.setProperty('--pw',
+    b>8 ? `clamp(28px,min(calc(20vw - 16px),calc(10vh - ${39+folta}px)),72px)`
+    : b>4 ? `clamp(34px,min(calc(25vw - 20px),calc(15vh - ${58+folta}px)),88px)`
+    : `clamp(44px,min(calc(25vw - 20px),calc(28vh - ${117+folta}px)),108px)`);
+  document.documentElement.style.setProperty('--cw','clamp(84px,min(32vw,14.5vh),140px)');
 
   let barra;
   if(fin){
