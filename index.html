@@ -80,40 +80,41 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
 .topbar .ico{width:17px;height:17px}
 
 /* ---- copertina ---- */
-.hero{display:flex;justify-content:center;align-items:flex-end;margin:14px 0 10px;min-height:108px}
+.hero{display:flex;justify-content:center;align-items:flex-end;margin:10px 0 6px;min-height:100px}
 .hero span{position:relative;transform:rotate(var(--r)) translateY(var(--y));transform-origin:50% 128%;
   animation:apre .55s cubic-bezier(.2,1.2,.35,1) both}
 .hero span+span{margin-left:-24px}
 .hero span:nth-child(1){--r:-13deg;--y:5px;animation-delay:.04s}
 .hero span:nth-child(2){--r:0deg;--y:-7px;animation-delay:.14s;z-index:2}
 .hero span:nth-child(3){--r:13deg;--y:5px;animation-delay:.24s}
-.hero .card{--cw:64px;box-shadow:0 10px 24px rgba(0,0,0,.42)}
+.hero .card{--cw:60px;box-shadow:0 10px 24px rgba(0,0,0,.42)}
 @keyframes apre{from{opacity:0;transform:rotate(0deg) translateY(20px) scale(.88)}}
 
 /* ---- tipografia lobby ---- */
-.brand{text-align:center;margin:8px 0 6px}
+.brand{text-align:center;margin:4px 0 4px}
 .brand h1{font-family:var(--display);font-size:clamp(40px,13.5vw,60px);line-height:.94;margin:0;font-weight:400;color:#F6EEDC}
 .brand h1 em{display:block;font-size:.42em;font-style:normal;letter-spacing:.34em;text-transform:uppercase;
-  color:var(--oro);margin-top:12px;padding-left:.34em}
-.rule{height:1px;background:linear-gradient(90deg,transparent,var(--felt-line),transparent);margin:18px 0}
-.lede{color:var(--dim);text-align:center;font-size:15px;line-height:1.5;margin:0 auto;max-width:34ch}
+  color:var(--oro);margin-top:9px;padding-left:.34em}
+.rule{height:1px;background:linear-gradient(90deg,transparent,var(--felt-line),transparent);margin:12px 0}
+.lede{color:var(--dim);text-align:center;font-size:15px;line-height:1.45;margin:0 auto;max-width:34ch}
 .panel{background:var(--su-basso);box-shadow:var(--su-basso-om);border:1px solid rgba(46,90,74,.55);
-  border-radius:14px;padding:16px;margin-top:14px}
+  border-radius:14px;padding:14px;margin-top:10px}
 label.f{display:block;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin-bottom:8px}
-input[type=text]{width:100%;padding:13px 14px;border-radius:10px;border:1px solid var(--felt-line);
+input[type=text]{width:100%;padding:12px 14px;border-radius:10px;border:1px solid var(--felt-line);
   background:rgba(0,0,0,.3);box-shadow:inset 0 2px 6px rgba(0,0,0,.28);color:#F6EEDC;font-size:17px;font-family:var(--ui)}
 input[type=text]:focus{outline:2px solid var(--oro);outline-offset:1px}
 .seg{display:flex;gap:8px}
 .seg button{flex:1;padding:11px 0;border:1px solid var(--felt-line);border-radius:10px;
   background:var(--su-alto);box-shadow:var(--su-alto-om);color:var(--dim);font-size:14px;transition:.18s}
 .seg button[aria-pressed=true]{background:var(--oro);color:#241A0F;border-color:var(--oro);font-weight:600}
-.btn{display:block;width:100%;padding:14px;border-radius:11px;background:var(--oro);color:#241A0F;
-  font-weight:700;font-size:16px;margin-top:12px;transition:transform .12s,filter .12s}
+.btn{display:block;width:100%;padding:13px;border-radius:11px;background:var(--oro);color:#241A0F;
+  font-weight:700;font-size:16px;margin-top:10px;transition:transform .12s,filter .12s}
 .btn:active{transform:scale(.985);filter:brightness(1.06)}
 .btn.ghost{background:transparent;border:1px solid var(--felt-line);color:#EFE7D6;font-weight:600}
 .btn[disabled]{opacity:.45;transform:none}
 .code-in{text-align:center;letter-spacing:.5em;text-transform:uppercase;font-size:26px;font-family:var(--display)}
-.err{color:#F0A99F;font-size:14px;margin-top:10px;min-height:1.2em;text-align:center}
+.err{color:#F0A99F;font-size:14px;margin-top:10px;text-align:center}
+.err:empty{display:none}
 .hint{color:var(--dim);font-size:13px;line-height:1.5;margin-top:10px}
 
 /* ---- barra alta ---- */
@@ -348,6 +349,24 @@ input[type=text]:focus{outline:2px solid var(--oro);outline-offset:1px}
 @media (max-height:700px){
   .wrap{padding-top:calc(8px + env(safe-area-inset-top));
     padding-bottom:calc(12px + env(safe-area-inset-bottom))}
+  /* Home su telefono basso: il ventaglio si rimpicciolisce, il titolo cala,
+     e la riga di presentazione esce. Quello che serve per giocare resta. */
+  .hero{margin:4px 0 2px;min-height:64px}
+  .hero .card{--cw:38px}
+  .hero span+span{margin-left:-16px}
+  .brand{margin:2px 0}
+  .brand h1{font-size:clamp(30px,10vw,42px)}
+  .brand h1 em{margin-top:6px}
+  .rule{margin:8px 0}
+  .lede{display:none}
+  .panel{padding:11px;margin-top:8px}
+  .btn{padding:11px;margin-top:8px}
+  label.f{margin-bottom:6px}
+  .hint{margin-top:8px}
+  .seatlist{gap:6px}
+  .seatlist li{padding:8px 11px}
+  .roomcode{font-size:clamp(34px,12vw,46px)}
+  #qr{margin:8px 0 2px}
   .felt{gap:6px;padding:4px 6px;min-height:150px}
   .opps{margin-bottom:4px}
   .scores{margin-top:6px}
@@ -357,6 +376,16 @@ input[type=text]:focus{outline:2px solid var(--oro);outline-offset:1px}
    tavolo e sotto ai pannelli, e non intercetta i tocchi. */
 #volo{position:fixed;inset:0;pointer-events:none;z-index:18}
 #volo .backcard{position:absolute;top:0;left:0;will-change:transform}
+/* I telefoni davvero piccoli, tipo il primo SE: resta il minimo per giocare. */
+@media (max-height:620px){
+  .hero{min-height:52px;margin:2px 0 0}
+  .hero .card{--cw:32px}
+  .hero span+span{margin-left:-12px}
+  .brand h1{font-size:clamp(26px,8.5vw,34px)}
+  .rule{margin:6px 0}
+  .panel .hint{display:none}
+  .panel{padding:10px;margin-top:6px}
+}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
@@ -887,7 +916,7 @@ function invito(cod,err){
   </div>
   <p class="err">${err||''}</p>
   <button class="btn ghost" id="altro" style="margin-top:4px">Non è il mio tavolo, apri il menu</button>
-  <div class="topbar" style="justify-content:center;padding-top:14px">${conn()}</div>`;
+  <div class="topbar" style="justify-content:center;padding-top:10px">${conn()}</div>`;
   const vai=()=>{ const nome=($('nm').value||'').trim().slice(0,12);
     if(!nome) return invito(cod,'Scrivi un nome, così gli altri sanno chi sei.');
     me.name=nome; localStorage.bt_name=nome;
@@ -904,11 +933,11 @@ function lobby(err){
   $('app').innerHTML=`
   ${ventaglio()}
   <div class="brand"><h1>Briscola<em>al tavolo</em></h1></div><div class="rule"></div>
-  <p class="lede">Carte napoletane per chi è già seduto insieme e non ha il mazzo. Un codice, ognuno col suo telefono.</p>
+  <p class="lede">Carte napoletane per chi è seduto insieme e non ha il mazzo.</p>
   <div class="panel">
     <label class="f" for="nm">Come ti chiamano</label>
     <input type="text" id="nm" maxlength="12" placeholder="Il tuo nome" value="${me.name}">
-    <p class="hint">Si gioca da due a sei. Si parte con chi c'è: i posti restano aperti finché non dai le carte.</p>
+    <p class="hint">Da due a sei. I posti restano aperti finché non dai le carte.</p>
     <button class="btn" id="crea">Apri un tavolo</button>
   </div>
   <div class="panel">
@@ -919,9 +948,8 @@ function lobby(err){
   <p class="err">${err||''}</p>
   <button class="btn ghost" id="reg" style="margin-top:6px">Non so giocare a briscola</button>
   <button class="btn ghost" id="install" style="margin-top:8px">Installa l'app sul computer</button>
-  <div class="topbar" style="justify-content:center;padding-top:14px">${conn()}<span style="margin-left:8px;display:grid" aria-label="${
-    muto?'Suoni spenti':'Suoni accesi'}">${muto?ICO.audioNo:ICO.audioSi}</span></div>
-  <p class="hint" style="text-align:center;font-size:11px">Carte del mazzo napoletano tradizionale.</p>`;
+  <div class="topbar" style="justify-content:center;padding-top:10px">${conn()}<span style="margin-left:8px;display:grid" aria-label="${
+    muto?'Suoni spenti':'Suoni accesi'}">${muto?ICO.audioNo:ICO.audioSi}</span></div>`;
   const nome=()=>($('nm').value||'').trim().slice(0,12);
   $('crea').onclick=()=>{ if(!nome())return paint('Scrivi un nome, così gli altri sanno chi sei.');
     me.name=nome(); localStorage.bt_name=me.name;
@@ -979,7 +1007,8 @@ function stanza(){
   if($('link'))$('link').onclick=()=>{ navigator.clipboard?.writeText(linkTavolo());
     const b=$('link'); b.textContent='Link copiato'; vibra(12);
     setTimeout(()=>{ if($('link')===b) b.textContent='Copia il link'; },1800); };
-  try{ if(window.QRCode) new QRCode($('qr'),{text:linkTavolo(),width:172,height:172,
+  const qs=innerHeight<620?112:(innerHeight<700?134:172);
+  try{ if(window.QRCode) new QRCode($('qr'),{text:linkTavolo(),width:qs,height:qs,
       colorDark:'#102A22',colorLight:'#F3E7CD',correctLevel:QRCode.CorrectLevel.M}); }
   catch(e){ $('qr').innerHTML='<span class="hint">QR non disponibile, usa il codice</span>'; }
 }

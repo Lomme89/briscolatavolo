@@ -136,6 +136,11 @@ al posto di `--pw` dentro la media query. In sei si passa da una cinquantina di 
 doppio. Nella stessa situazione il blocco si sposta a sinistra (`.felt.folto`) per non
 finire sotto il mazzo.
 
+La home e la stanza non hanno misure elastiche: stanno in piedi su tre scaglioni di
+altezza. Sopra i 700px va tutto per intero; sotto, il ventaglio di copertina si
+rimpicciolisce e la riga di presentazione esce; sotto i 620 restano solo titolo, campi e
+bottoni. Il QR della stanza segue `innerHeight` in `stanza()`.
+
 Toccando questi valori, rimisurare: basta caricare `index.html` in un browser headless,
 piazzare uno stato finto e controllare che `scrollHeight` non superi `innerHeight` per
 ogni numero di giocatori e per le varie misure del tavolo di scopa.
