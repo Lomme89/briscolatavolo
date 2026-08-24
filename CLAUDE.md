@@ -268,7 +268,7 @@ le piacentine ce li hanno, e in WebP diventerebbero neri — e stampa la data UR
 incollare:
 
 ```
-python3 foglio.py cartella-delle-carte --larghezza 200 --qualita 76 [--taglia 4]
+python3 foglio.py cartella-delle-carte --larghezza 200 --qualita 76 [--taglia 4] [--angolo 12]
 ```
 
 La misura della cella è 200px di larghezza per tutti: più grande non si vede la
@@ -277,7 +277,16 @@ differenza a schermo e il file raddoppia. Lo script dice anche quanto viene `--a
 `--taglia` toglie un anello di pixel dal bordo di ogni carta, e le piacentine ne hanno
 bisogno: si portano dietro il filo della fustella, che insieme alla cornice stampata
 dentro faceva due righe, cioè una carta dentro una carta. Con quattro pixel via il filo
-sparisce e resta la cornice, che è il bordo vero. Per la stessa ragione nel tema
+sparisce dai lati — ma **non dall'angolo**, dove la curva rientra di una decina di pixel
+e un anello dritto non la prende. Lì serve `--angolo`, che sbianca tutto quello che sta
+fuori da una smussatura in percentuale della larghezza. Sul tavolo, con le carte grandi,
+quell'arco si vedeva; in home, con le carte del ventaglio a sessanta pixel, no — ed è
+per questo che sembrava un difetto solo di una schermata.
+
+La smussatura del CSS (`--r-carta`, il 10%) sta apposta **dentro** a quella con cui si
+è sbiancato l'angolo (il 12%): così il bordo visibile cade sempre nel bianco pulito, e
+mezzo pixel di disaccordo fra il taglio del CSS e quello del disegno non fa riaffiorare
+il filo. Per la stessa ragione nel tema
 piacentino `--card-edge` è **bianco**: il bordo di `.card` gli girava attorno ancora più
 fuori, dorato, e adesso si confonde col bianco della carta. E `--r-carta` non è fisso ma
 un decimo della larghezza, così la smussatura segue l'angolo stampato a ogni misura
