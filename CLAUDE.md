@@ -9,7 +9,7 @@ In produzione su GitHub Pages: `https://lomme89.github.io/briscolatavolo/`
 ## File
 
 ```
-index.html          tutto il gioco: markup, stile, motore, rete (~840 KB)
+index.html          tutto il gioco: markup, stile, motore, rete (~1,3 MB)
 manifest.json       manifest PWA
 sw.js               service worker, cache del guscio
 .nojekyll           impedisce a GitHub Pages di processare i file
@@ -122,17 +122,38 @@ settebello, primiera (7=21, 6=18, A=16, 5=15, 4=14, 3=13, 2=12, figure=10), più
 scopa; in parità il punto non si assegna. **In cinque la scopa non è giocabile**, i conti
 non tornano.
 
+## Temi
+
+Ci sono tre temi, in `TEMI`: **classico** (napoletane, feltro verde, EB Garamond),
+**chiaro** e **scuro** (mazzi moderni disegnati piatti, palette neutra, carattere di
+sistema in grassetto stretto). Ognuno porta il suo mazzo, la sua palette e il suo
+carattere; il tema è una scelta **personale**, sta nel `localStorage` e non nello stato
+del tavolo, quindi allo stesso tavolo si può stare uno al chiaro e uno allo scuro.
+
+I colori stanno tutti in token sotto `html[data-tema=…]`. Se aggiungi una regola non
+scrivere un colore a mano: usa un token, se no il tema sbagliato ti si vede addosso.
+`--acc-rgb` è l'accento in componenti separate, per gli aloni in `rgba()`.
+
+**Le proporzioni della carta cambiano col mazzo**: `--ar` vale 1.517 col mazzo napoletano
+e 1.733 con i due moderni. Ogni misura ricavata dall'altezza passa da `perAltezza()`, che
+la riscala di `1.517/--ar`. Senza, col mazzo più lungo la pagina scrolla.
+
+Si sceglie da due posti: le tre pastiglie tonde nella barra in fondo alla home, e la
+sezione «Aspetto» in fondo al pannello delle regole, per cambiarlo anche stando a tavolo.
+
 ## Carte
 
-Le 40 carte sono un unico foglio JPEG incorporato in base64 dentro `index.html`. Ogni
-carta è un `div` con `background-size: 1000% 400%` e `background-position` calcolata da
-seme e valore. Righe = semi nell'ordine `SUITS`, colonne = valori 1..10.
+Ogni mazzo è un unico foglio incorporato in base64 dentro `index.html`: JPEG quello
+napoletano, WebP i due moderni (200×347 per carta, qualità 72 — un terzo del JPEG a parità
+di resa su disegni piatti). Ogni carta è un `div` con `background-size: 1000% 400%` e
+`background-position` calcolata da seme e valore. Righe = semi nell'ordine `SUITS`,
+colonne = valori 1..10.
 
 Il tre e il quattro di denari sono ricostruiti a mano, perché gli originali avevano il
 numero di monete sbagliato.
 
-Il dorso non è un'immagine: è un reticolo a rombi fatto di gradienti CSS, definito una
-volta sola su `.backcard, .opp .mini i` e riusato da entrambi.
+Il dorso non è un'immagine: è fatto di gradienti CSS in `--dorso`, uno per tema, e lo
+riusano sia il mazzo sul tavolo sia le mini-carte in mano agli avversari.
 
 ## Font
 
