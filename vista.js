@@ -247,9 +247,14 @@ const attesa = ms => new Promise(r => setTimeout(r, ms));
     });
     await p.evaluate(s => window.eval(s), codice);
     await attesa(attesaMs || 320);
+    /* Si misura a animazioni ferme: le carte entrano da 40px più in basso e
+       la mano ondeggia di continuo, quindi misurare a caso dà numeri a caso. */
+    await p.addStyleTag({ content: '*{animation:none !important;transition:none !important}' });
+    await attesa(60);
     const m = await p.evaluate(() => ({
       vero: document.documentElement.scrollHeight, i: innerHeight,
       cnt: (document.querySelector('.cnt') || {}).textContent || '',
+      briscolaLi: !!document.querySelector('.trumpslot'),
       titolo: (document.querySelector('.esitone') || {}).textContent || '',
       coriandoli: document.querySelectorAll('.coriandolo').length
     }));
@@ -262,7 +267,14 @@ const attesa = ms => new Promise(r => setTimeout(r, ms));
     for (const [n, inTav, mazzo] of [[2, 1, 14], [3, 2, 10], [4, 3, 8], [6, 5, 0]]) {
       const m = await conStato(tel, inGioco(n, inTav, mazzo));
       ok(m.vero <= m.i + 1, `tavolo in ${n} su ${tel[0]}: non scrolla (${m.vero} su ${m.i})`);
-      if (tel[0] === 'iPhone 14') ok(/man[io]$/.test(m.cnt), `in ${n} il mazzo dice le mani che restano ("${m.cnt}")`);
+      if (tel[0] === 'iPhone 14') {
+        /* Quante altre mani dà il mazzo, non quante ne restano da giocare. */
+        const atteso = mazzo ? Math.ceil(mazzo / n) + ' man' + (Math.ceil(mazzo / n) > 1 ? 'i' : 'o') : 'mazzo finito';
+        ok(m.cnt === atteso, `in ${n} con ${mazzo} carte nel mazzo dice "${m.cnt}" (atteso "${atteso}")`);
+        /* A mazzo finito la briscola se l'è pescata qualcuno: non può restare lì. */
+        ok(m.briscolaLi === (mazzo > 0),
+          mazzo ? `in ${n} la briscola è ancora nel mazzo` : `in ${n} a mazzo finito la briscola non resta sul tavolo`);
+      }
     }
   }
   for (const [n, gioco, vinco, vinta] of [[2, 'briscola', 0, true], [4, 'briscola', 1, false], [6, 'scopa', 0, true]]) {

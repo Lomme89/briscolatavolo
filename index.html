@@ -346,9 +346,6 @@ html.alto .felt.folto .played{margin-right:calc(var(--dw) + var(--tw) * 1.11 + 8
 .trumpslot{transform:rotate(90deg);margin-left:calc(var(--tw) * -.15);
   margin-right:calc(var(--tw) * (var(--ar) - 1) / 2)}
 .trumpslot .card{--cw:var(--tw)}
-/* A mazzo finito la briscola resta lì, smorzata: dice ancora qual è il seme
-   che comanda, e prima al suo posto compariva la scritta «mazzo finito». */
-.trumpslot.sola{opacity:.72;filter:saturate(.85)}
 .deckbox .cnt{white-space:nowrap}
 
 /* ---- mano ---- */
@@ -791,11 +788,12 @@ function contaScopa(st){
   const vSette=sette.findIndex(x=>x>=0); if(vSette>=0) tot[vSette]++;
   return {tot,carte,den,primT,sette:vSette,vCarte,vDen,vPrim};
 }
-/* Quante mani restano da giocare: quello che serve sapere guardando il
-   mazzo è quanti altri giri ci sono, non quante carte ci sono dentro. */
+/* Per quante altre mani il mazzo dà da pescare. È quello che si guarda
+   quando si guarda il mazzo: non quante carte ci sono dentro, e nemmeno
+   quanti giri restano in tutto — quelli sono sempre questi più i tre che
+   ognuno ha già in mano. */
 function maniRimaste(st){
-  const inMano=Object.values(st.hands||{}).reduce((a,h)=>a+h.length,0);
-  return Math.ceil(((st.deck||[]).length+inMano)/st.n);
+  return Math.ceil(((st.deck||[]).length)/st.n);
 }
 const nGroups=st=>st.teams?2:st.n;
 const groupOf=(seat,st)=>st.teams?seat%2:seat;
@@ -1847,10 +1845,9 @@ function tavolo(){
   ${codaBar()}
   <div class="felt${n>=4?' folto':''}">
     <div class="deckbox"><span class="cnt">${(()=>{const m=maniRimaste(S);
-        return m?m+' man'+(m>1?'i':'o'):'ultima';})()}</span>
+        return m?m+' man'+(m>1?'i':'o'):'mazzo finito';})()}</span>
       ${S.deck.length>1?'<span class="backcard"></span>':''}
-      ${S.deck.length?`<span class="trumpslot">${cardHTML(S.trump,{trump:1})}</span>`
-        :`<span class="trumpslot sola">${cardHTML(S.trump,{trump:1})}</span>`}</div>
+      ${S.deck.length?`<span class="trumpslot">${cardHTML(S.trump,{trump:1})}</span>`:''}</div>
     <div class="played" id="pl">${S.table.length
       ? S.table.map(p=>`<span class="playedwrap${p.seat===best?' best':''}" data-seat="${p.seat}">${cardHTML(p.c)}<small>${p.seat===mySeat?'tu':nomeDi(p.seat)}</small></span>`).join('')
       : (S.last?`<span style="color:var(--dim);font-size:13px">ultima presa: ${S.last.pts} punti a ${S.last.seat===mySeat?'te':nomeDi(S.last.seat)}</span>`:'')}</div>

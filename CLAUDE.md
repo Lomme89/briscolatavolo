@@ -228,8 +228,14 @@ La **briscola** in alto a destra sta a `--tw`, una volta e mezza il dorso: è la
 che si guarda per tutta la mano e a misura di dorso non si leggeva. Esce da sotto il
 mazzo, che le sta sopra (`z-index` dentro `.deckbox`, che fa contesto apposta: se no il
 dorso finirebbe sopra anche alle carte calate, che quando arrivano lì devono passargli
-davanti). Sotto non c'è più il numero di carte rimaste ma **quante mani restano**, che
-è la cosa che si vuole sapere guardando il mazzo.
+davanti). **Sparisce quando il mazzo finisce**: l'ultima carta del mazzo è proprio lei,
+e a quel punto ce l'ha qualcuno in mano — lasciarla lì vuol dire far vedere la stessa
+carta in due posti.
+
+Sotto al mazzo non c'è il numero di carte rimaste ma **per quante altre mani il mazzo
+dà da pescare** (`maniRimaste()`), che a mazzo finito diventa «mazzo finito». Non sono
+i giri che restano da giocare: quelli sono sempre questi più i tre che ognuno ha già in
+mano.
 
 **Le proporzioni della carta cambiano col mazzo**: `--ar` vale 1.517 col mazzo napoletano
 e 1.733 con i due moderni. Ogni misura ricavata dall'altezza passa da `perAltezza()`, che
