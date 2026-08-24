@@ -62,6 +62,7 @@ html[data-tema=classico]{
   --dorso-om:inset 0 0 0 1px rgba(246,238,220,.22),inset 0 0 0 3px rgba(0,0,0,.16);
   --qr-scuro:#102A22; --qr-chiaro:#F3E7CD;
   --tavolo:transparent;
+  --r-carta:9px; --r-dorso:6px; --r-mini:2px;
   --acc-rgb:214,154,36; --ombra-tavolo:6,18,14; --luce-tavolo:255,255,255;
   --op-vign:.34; --op-luce:.055;
 }
@@ -87,6 +88,7 @@ html[data-tema=chiaro]{
   --dorso-om:inset 0 0 0 3px rgba(250,250,247,.9),inset 0 0 0 4px rgba(0,0,0,.1);
   --qr-scuro:#1F4E8C; --qr-chiaro:#F6F3ED;
   --tavolo:#F1EDE4;
+  --r-carta:0px; --r-dorso:0px; --r-mini:0px;
   --acc-rgb:31,78,140; --ombra-tavolo:120,104,74; --luce-tavolo:255,255,255;
   --op-vign:.14; --op-luce:.55;
 }
@@ -112,6 +114,7 @@ html[data-tema=scuro]{
   --dorso-om:inset 0 0 0 1px rgba(224,165,38,.22),inset 0 0 0 4px rgba(0,0,0,.4);
   --qr-scuro:#0B0E14; --qr-chiaro:#E6E9EE;
   --tavolo:rgba(255,255,255,.022);
+  --r-carta:0px; --r-dorso:0px; --r-mini:0px;
   --acc-rgb:224,165,38; --ombra-tavolo:0,0,0; --luce-tavolo:255,255,255;
   --op-vign:.4; --op-luce:.045;
 }
@@ -250,7 +253,7 @@ input[type=text]:focus{outline:2px solid var(--oro);outline-offset:1px}
 .opp.turn .att{display:block;width:6px;height:6px;border-radius:50%;background:var(--oro);
   animation:blink 1.1s infinite;flex:none}
 .opp .mini{display:flex}
-.opp .mini i{width:9px;height:14px;border-radius:2px;background:var(--dorso);
+.opp .mini i{width:9px;height:14px;border-radius:var(--r-mini);background:var(--dorso);
   box-shadow:inset 0 0 0 1px rgba(255,255,255,.18);border:1px solid var(--dorso-bordo);
   margin-left:-3px;display:block}
 .opp .mini i:first-child{margin-left:0}
@@ -304,7 +307,7 @@ input[type=text]:focus{outline:2px solid var(--oro);outline-offset:1px}
 .deckbox .cnt{order:3;width:100%;text-align:right;font-size:11.5px;color:var(--dim);margin:3px 2px 0 0}
 /* Il dorso: reticolo a rombi su rosso, come i mazzi napoletani da bar.
    Due trame incrociate a 45° più un punto luce; la cornice è nelle ombre inset. */
-.backcard{width:var(--dw);height:calc(var(--dw)*var(--ar));border-radius:6px;border:1px solid var(--dorso-bordo);
+.backcard{width:var(--dw);height:calc(var(--dw)*var(--ar));border-radius:var(--r-dorso);border:1px solid var(--dorso-bordo);
   background:var(--dorso);background-position:center;
   box-shadow:var(--dorso-om),0 2px 6px rgba(0,0,0,.35)}
 .trumpslot{transform:rotate(90deg);margin-left:calc(var(--dw) * -.4);
@@ -316,7 +319,7 @@ input[type=text]:focus{outline:2px solid var(--oro);outline-offset:1px}
    sotto la mano, così stanno su un arco invece che affiancate. */
 .hand{display:flex;gap:0;justify-content:center;padding-top:14px;align-items:flex-end;
   min-height:calc(var(--cw)*var(--ar) + 32px)}
-.slot{--r:0deg;padding:0;border-radius:10px;position:relative;
+.slot{--r:0deg;padding:0;border-radius:var(--r-carta);position:relative;
   transform:rotate(var(--r));transform-origin:50% 132%;transition:transform .2s ease}
 .slot+.slot{margin-left:calc(var(--cw) * -.2)}
 .slot:nth-child(1){--r:-7deg}
@@ -358,7 +361,7 @@ input[type=text]:focus{outline:2px solid var(--oro);outline-offset:1px}
   background:var(--oro);box-shadow:0 0 0 2px rgba(0,0,0,.25);z-index:3}
 
 /* ---- carta ---- */
-.card{width:var(--cw);height:calc(var(--cw)*var(--ar));border-radius:9px;
+.card{width:var(--cw);height:calc(var(--cw)*var(--ar));border-radius:var(--r-carta);
   background:var(--carta-fondo) var(--sheet) no-repeat;background-size:1000% 400%;
   border:1px solid var(--card-edge);box-shadow:0 4px 12px rgba(0,0,0,.34);display:block}
 .card.trump{outline:2px solid var(--oro);outline-offset:-2px}
