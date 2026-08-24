@@ -31,7 +31,10 @@ Il trasporto è un **broker MQTT pubblico** (`broker.emqx.io` via WSS, con
 - `bt/<CODICE>/s` — lo stato completo in JSON, **retained**, pubblicato solo dal mazziere.
   Il flag retained è ciò che permette a chi entra dopo, o si riconnette, di vedere subito
   la partita.
-- `bt/<CODICE>/a` — le azioni dei giocatori. Solo il mazziere è iscritto.
+- `bt/<CODICE>/a` — le azioni dei giocatori. Solo il mazziere è iscritto. Ci passa anche
+  il battito di presenza, `{t:'qui'}`, che ogni client manda ogni cinque secondi.
+- `bt/<CODICE>/h` — il battito del mazziere, non retained. Serve solo a far sapere agli
+  altri che è ancora lì.
 
 QoS 0: nessuna ritrasmissione. Non serve, perché ogni messaggio di stato è completo e non
 incrementale — il successivo rimette tutti in pari.
@@ -70,6 +73,8 @@ grezzo e va benissimo a queste dimensioni: non introdurre un framework.
 S = {
   code, game: 'briscola'|'scopa', phase: 'attesa'|'gioco'|'fine',
   seats: [{id, name}],        // denso, max 6, l'indice è il posto
+  coda: [{id, name}],         // chi è arrivato a mano iniziata, entra al prossimo giro
+  via: [playerId],            // chi non manda il battito da mezzo minuto
   teams, n, first, mano, albo: {playerId: maniVinte},
   hands: {seat: [carta]}, deck: [carta],
   // briscola
@@ -82,6 +87,22 @@ S = {
 Una carta è `{s, r}`: `s` è il seme (0 denari, 1 coppe, 2 spade, 3 bastoni), `r` va da
 1 a 10. `ripulisci()` azzera i campi della mano precedente quando si cambia gioco:
 senza, una vista parte con i resti dell'altra e si rompe.
+
+## Presenza
+
+Ogni client manda `{t:'qui'}` ogni cinque secondi e il mazziere segna l'ora in `visti`.
+Chi non si fa sentire per **trenta secondi** finisce in `S.via`: il suo nome si smorza e
+la barra dice che non risponde. Il mazziere fa lo stesso verso gli altri su `/h`, e chi
+non lo sente più se lo vede scritto al posto di "In linea".
+
+**Il battito non fa succedere niente da solo.** Non salta turni, non scioglie mani, non
+libera posti: la soglia è larga apposta perché uno che ci sta pensando su manda il battito
+lo stesso, e sarebbe sbagliato metterlo di fretta. L'unica cosa che abilita è un bottone
+per il mazziere, che chiude la mano in due tocchi quando qualcuno se n'è andato davvero.
+
+Chi arriva a mano iniziata finisce in `S.coda` e si siede alla mano dopo: `assorbiCoda()`
+lo travasa in `seats` appena la fase non è più `gioco`. Nel frattempo vede il tavolo da
+spettatore, con scritto perché non ha carte in mano.
 
 ## Regole implementate
 

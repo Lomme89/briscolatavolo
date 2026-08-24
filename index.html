@@ -149,6 +149,12 @@ input[type=text]:focus{outline:2px solid var(--oro);outline-offset:1px}
 .opps{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:8px}
 .opp{display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:var(--su-alto);
   box-shadow:var(--su-alto-om);border:1px solid transparent;font-size:13px;transition:border-color .25s,box-shadow .25s}
+.opp.via{opacity:.45;filter:saturate(.5)}
+.opp.via .att{animation:none;background:var(--dim)}
+.attesa-posto{margin:14px 0 0;padding:13px;border-radius:12px;background:var(--su-basso);
+  box-shadow:var(--su-basso-om);border:1px solid var(--felt-line);
+  text-align:center;font-size:14.5px;line-height:1.5;color:#DCE9E1}
+.attesa-posto b{color:var(--oro);font-weight:600}
 .opp.turn{border-color:var(--oro);box-shadow:var(--su-alto-om),0 0 0 3px rgba(214,154,36,.16)}
 .opp .att{display:none}
 .opp.turn .att{display:block;width:6px;height:6px;border-radius:50%;background:var(--oro);
@@ -517,7 +523,16 @@ let me={id:localStorage.bt_id||('p'+Math.random().toString(36).slice(2,9)),name:
 localStorage.bt_id=me.id;
 let code=null, isHost=false, mySeat=-1, S=null, resolving=false, invitoVisto=false;
 let prev={turn:null,tavolo:0,fase:null,punti:null};
-const T=c=>({s:'bt/'+c+'/s', a:'bt/'+c+'/a'});
+const T=c=>({s:'bt/'+c+'/s', a:'bt/'+c+'/a', h:'bt/'+c+'/h'});
+/* Battito di presenza. Serve a sapere chi non c'è più, non a mettere
+   fretta: la soglia è larga apposta, perché uno che ci sta pensando su
+   manda il battito lo stesso. Non salta turni e non scioglie niente da
+   solo — dice soltanto quello che vede, e il resto lo decide il mazziere. */
+const BATTITO=5000, VIA_MS=30000;
+let visti={}, mazziereVisto=0, viaPrec='', persoPrec=false;
+const mazzierePerso=()=>!!(code&&!isHost&&mazziereVisto&&Date.now()-mazziereVisto>VIA_MS);
+const viaQui=id=>!!(S&&S.via&&S.via.indexOf(id)>=0);
+const seatVia=i=>S&&S.seats&&S.seats[i]&&viaQui(S.seats[i].id);
 
 function connect(cb){
   const url=BROKERS[bi%BROKERS.length]; bi++;
@@ -528,9 +543,11 @@ function connect(cb){
   cli.on('close',()=>{connected=false;paint();});
   cli.on('error',()=>{});
   cli.on('message',(t,p)=>{
+    if(code&&t===T(code).h){ mazziereVisto=Date.now();
+      if(persoPrec){ persoPrec=false; paint(); } return; }
     let m; try{m=JSON.parse(p.toString());}catch(e){return;}
     if(!code) return;
-    if(t===T(code).s){ if(!m.code)return; S=m; syncSeat(); paint(); autoResolve(); }
+    if(t===T(code).s){ if(!m.code)return; mazziereVisto=Date.now(); S=m; syncSeat(); paint(); autoResolve(); }
     else if(t===T(code).a && isHost){ handle(m); }
   });
 }
@@ -538,18 +555,41 @@ function pubState(){ if(cli&&S) cli.publish(T(code).s,JSON.stringify(S),{retain:
 function send(a){ a.id=me.id; if(isHost) handle(a); else if(cli) cli.publish(T(code).a,JSON.stringify(a),{qos:0}); }
 
 /* ================= regole (le applica il mazziere) ================= */
+/* Chi arriva a mano iniziata non veniva né accettato né rifiutato: il join
+   spariva in silenzio e lui restava a guardare una schermata senza la sua
+   mano. Ora si mette in coda e si siede alla prossima. */
+function assorbiCoda(){
+  if(!S.coda||!S.coda.length) return false;
+  let entrati=false;
+  S.coda.forEach(x=>{ if(S.seats.length<6&&!S.seats.some(y=>y.id===x.id)){ S.seats.push(x); entrati=true; } });
+  S.coda=[]; return entrati;
+}
 function handle(a){
   if(!S) return;
+  visti[a.id]=Date.now();
+  if(a.t==='qui'){ if(S.phase!=='gioco'&&assorbiCoda()){ pubState(); syncSeat(); paint(); } return; }
+  if(S.phase!=='gioco') assorbiCoda();
   if(a.t==='join'){
-    if(S.phase==='gioco') return;
     if(S.seats.some(s=>s.id===a.id)) return;
-    if(S.seats.length>=6) return;
-    S.seats.push({id:a.id,name:(a.name||'Ospite').slice(0,12)});
+    const nome=(a.name||'Ospite').slice(0,12);
+    if(S.phase==='gioco'){
+      S.coda=S.coda||[];
+      if(S.coda.some(x=>x.id===a.id)) return;
+      if(S.seats.length+S.coda.length>=6) return;
+      S.coda.push({id:a.id,name:nome});
+    } else {
+      if(S.seats.length>=6) return;
+      S.seats.push({id:a.id,name:nome});
+    }
   }
-  else if(a.t==='leave'){ if(S.phase==='gioco')return; S.seats=S.seats.filter(s=>s.id!==a.id); }
+  else if(a.t==='leave'){
+    if(S.coda) S.coda=S.coda.filter(x=>x.id!==a.id);
+    if(S.phase!=='gioco') S.seats=S.seats.filter(s=>s.id!==a.id);
+  }
   else if(a.t==='squadre'&&S.phase!=='gioco'){ S.teams=!!a.v; }
   else if(a.t==='gioco'&&S.phase!=='gioco'){ S.game=a.v==='scopa'?'scopa':'briscola'; ripulisci(); }
   else if(a.t==='stanza'&&S.phase==='fine'){ ripulisci(); }
+  else if(a.t==='sciogli'&&S.phase==='gioco'&&a.id===me.id){ ripulisci(); }
   else if((a.t==='start'||a.t==='rematch')&&S.phase!=='gioco'&&S.seats.length>=2){
     if(S.game==='scopa'&&S.seats.length===5) return; else deal();
   }
@@ -573,6 +613,7 @@ function ripulisci(){
   S.deck=null; S.trump=null; S.mossa=null; S.esito=null;
 }
 function deal(){
+  assorbiCoda();
   S.n=S.seats.length;
   if(S.n%2||S.n<4) S.teams=false;
   if(S.game==='scopa') return dealScopa();
@@ -667,12 +708,14 @@ function apri(){
 function entra(c){
   code=c; isHost=false; S=null; location.hash=c;
   cli.subscribe(T(code).s,()=>{ send({t:'join',name:me.name}); });
+  cli.subscribe(T(code).h);
   paint();
   setTimeout(()=>{ if(!S) paint('Nessuno risponde al tavolo '+c+'. Fai ricontrollare il codice a chi l\'ha aperto, e che tenga la pagina aperta.'); },6000);
 }
 function esci(){
   if(!isHost&&S) send({t:'leave'});
-  if(cli){cli.unsubscribe(T(code).s);cli.unsubscribe(T(code).a);}
+  if(cli){cli.unsubscribe(T(code).s);cli.unsubscribe(T(code).a);cli.unsubscribe(T(code).h);}
+  visti={};mazziereVisto=0;viaPrec='';persoPrec=false;
   if(isHost&&cli) cli.publish(T(code).s,'',{retain:true});
   code=null;isHost=false;S=null;mySeat=-1;location.hash='';invitoVisto=true;
   prev={turn:null,tavolo:0,fase:null,punti:null};azzeraViste();paint();
@@ -889,7 +932,29 @@ function volaPunti(gr,n){
 }
 
 /* ================= viste ================= */
+/* Le viste rifanno #app da capo, e un salto di connessione chiama paint():
+   senza questo, chi stava scrivendo il nome se lo vedeva sparire, insieme
+   al fuoco e al punto in cui era arrivato col cursore. */
+function congelaCampi(){
+  const a=document.activeElement, app=$('app');
+  const dentro=a&&a.tagName==='INPUT'&&app&&app.contains(a);
+  return {valori:[...document.querySelectorAll('#app input')].map(e=>[e.id,e.value]),
+          fuoco:dentro?a.id:null, cursore:dentro?a.selectionStart:0};
+}
+function scongelaCampi(c){
+  c.valori.forEach(([id,v])=>{ if(!id||!v) return;
+    const e=$(id); if(e&&e.tagName==='INPUT') e.value=v; });
+  if(!c.fuoco) return;
+  const e=$(c.fuoco); if(!e) return;
+  e.focus({preventScroll:true});
+  try{ e.setSelectionRange(c.cursore,c.cursore); }catch(x){}
+}
 function paint(err){
+  const campi=congelaCampi();
+  disegna(err);
+  scongelaCampi(campi);
+}
+function disegna(err){
   clearTimeout(attesaInvio);
   if(!S && !code) return lobby(err);
   if(!S) return attesaConn(err);
@@ -898,7 +963,9 @@ function paint(err){
   if(S.game==='scopa') tavoloScopa(); else tavolo();
   suoniDiff();
 }
-const conn=()=>`<span class="dot ${connected?'on':''}"></span><span>${connected?'In linea':'Ricollego…'}</span>`;
+const conn=()=>mazzierePerso()
+  ? `<span class="dot"></span><span>Il mazziere non risponde</span>`
+  : `<span class="dot ${connected?'on':''}"></span><span>${connected?'In linea':'Ricollego…'}</span>`;
 const mutoBtn=()=>`<button id="mu" title="${muto?'Riattiva i suoni':'Silenzia'}" aria-label="${
   muto?'Riattiva i suoni':'Silenzia'}">${muto?ICO.audioNo:ICO.audioSi}</button>`;
 function legaMuto(){ const b=$('mu'); if(b) b.onclick=()=>{muto=!muto;localStorage.bt_mute=muto?'1':'0';if(!muto)SND.entra();paint();}; }
@@ -1016,9 +1083,13 @@ function stanza(){
 function tavolo(){
   const n=S.n, hand=(S.hands&&S.hands[mySeat])||[], turn=S.turn, fin=S.phase==='fine';
   const gm=groupOf(mySeat,S), G=nGroups(S);
-  const opps=[]; for(let k=1;k<n;k++)opps.push((mySeat+k)%n);
+  const spettatore=mySeat<0;
+  const opps=[]; if(spettatore) S.seats.forEach((_,i)=>opps.push(i));
+  else for(let k=1;k<n;k++)opps.push((mySeat+k)%n);
   const top=Math.max(...S.points), vinc=S.points.map((p,g)=>p===top?g:-1).filter(g=>g>=0);
   const pieno=S.table.length===n, best=pieno?trickWinner(S.table,S.trumpSuit):-1;
+  const assente=!fin&&!pieno&&turn>=0&&seatVia(turn);
+  if(!assente) sciogliChiesto=false;
   // --pw è la misura in riga sola, --pw2 quella su due file: sceglie il CSS.
   // Le sottrazioni in px tengono conto dei margini della pagina e dei vuoti
   // fra una carta e l'altra, che in vw non si possono esprimere.
@@ -1051,6 +1122,9 @@ function tavolo(){
     barra=`<p class="turnbar esito">${best===mySeat?'Prendi <b>tu</b>':'Prende <b>'+nomeDi(best)+'</b>'}, ${vinti} punti</p>`;
   } else if(turn===mySeat){
     barra=`<p class="turnbar mine">Tocca a te, gioca una carta</p>`;
+  } else if(assente){
+    barra=`<p class="turnbar"><b>${nomeDi(turn)}</b> non risponde</p>`
+      +(isHost?barraAssente():'');
   } else {
     barra=`<p class="turnbar"><span class="spin"></span>Sta giocando <b>${nomeDi(turn)}</b></p>`;
   }
@@ -1060,7 +1134,8 @@ function tavolo(){
   <div class="topbar">${conn()}<span class="sp"></span>
     <span class="brisc">Briscola <b style="color:${SUITS[S.trumpSuit].col}">${SUITS[S.trumpSuit].nome}</b></span>
     ${mutoBtn()}<button id="cl" title="Punteggi" aria-label="Punteggi">${ICO.punti}</button><button id="rg" title="Regole" aria-label="Regole">${ICO.aiuto}</button><button id="x" title="Esci dal tavolo" aria-label="Esci dal tavolo">${ICO.esci}</button></div>
-  <div class="opps">${opps.map(i=>`<span class="opp ${turn===i?'turn':''}" data-seat="${i}">
+  <div class="opps">${opps.map(i=>`<span class="opp ${turn===i?'turn':''}${seatVia(i)?' via':''}" data-seat="${i}"${
+    seatVia(i)?' title="non risponde"':''}>
     <span class="att" aria-hidden="true"></span>
     <span>${nomeDi(i)}${S.teams&&groupOf(i,S)===gm?', con te':''}</span>
     ${S.tr&&S.tr[i]?`<b>${S.tr[i]}</b>`:''}
@@ -1076,12 +1151,12 @@ function tavolo(){
   <div class="scores">${Array.from({length:G},(_,g)=>`
     <div class="sc ${fin&&vinc.includes(g)?'win':''}${g===gm?' mine':''}">
       <div class="lbl">${eti(g)}</div><div class="val">${S.points[g]}</div></div>`).join('')}</div>
-  ${fin?(isHost?'<button class="btn" id="ri">Un\'altra mano</button><button class="btn ghost" id="tn">Torna al tavolo</button>'
+  ${spettatore?attesaPosto():fin?(isHost?'<button class="btn" id="ri">Un\'altra mano</button><button class="btn ghost" id="tn">Torna al tavolo</button>'
                :'<p class="hint" style="text-align:center">Il mazziere può dare di nuovo.</p>')
        :`<div class="hand${dando?' dando':''}">${hand.map((c,i)=>`<button class="slot ${turn===mySeat?'playable':''}${carteNuove[i]?' nuova':''}" data-i="${i}"
           ${turn===mySeat&&S.table.length<n?'':'disabled'}>${c.s===S.trumpSuit?'<span class="brisc-flag"></span>':''}${cardHTML(c)}<span class="tasto">${i+1}</span></button>`).join('')}</div>
         <p class="tastiera">Tasti 1 2 3 per calare, M per i suoni, ? per le regole</p>`}`;
-  $('x').onclick=esci; $('rg').onclick=regole; $('cl').onclick=classifica; legaMuto();
+  $('x').onclick=esci; $('rg').onclick=regole; $('cl').onclick=classifica; legaMuto(); legaSciogli();
   if($('ri'))$('ri').onclick=()=>send({t:'rematch'});
   if($('tn'))$('tn').onclick=()=>send({t:'stanza'});
   legaCarte(b=>{
@@ -1101,7 +1176,10 @@ function tavolo(){
   const len=S.table.length, nuovaMano=S.mano!==anim.mano;
   if(dando) requestAnimationFrame(()=>distribuisci(S,mySeat,0));
   else if((len>anim.len&&!nuovaMano)||(len&&nuovaMano)) requestAnimationFrame(lancia);
-  if(pieno&&!fin){
+  // La conta si programma una volta sola per giro: un repaint qualsiasi
+  // mentre il tavolo è pieno la rifaceva partire da capo, sovrapposta.
+  const chiavePresa=pieno?S.table.map(x=>x.seat+':'+x.c.s+'-'+x.c.r).join('|'):'';
+  if(pieno&&!fin&&anim.presa!==chiavePresa){
     const rit=ritmoPresa(S);
     contaPresa(rit);
     setTimeout(()=>battito(best),rit.battuta);
@@ -1114,7 +1192,7 @@ function tavolo(){
     const val=document.querySelectorAll('.sc .val');
     S.points.forEach((p,g)=>{ volaPunti(g,p-vecchi[g]); salePunteggio(val[g],vecchi[g],p); });
   }
-  anim={len,mano:S.mano,punti:pStr};
+  anim={len,mano:S.mano,punti:pStr,presa:chiavePresa};
 }
 
 let scelta=null;
@@ -1128,8 +1206,12 @@ function tavoloScopa(){
     else if(scelta.k>=scelta.opts.length) scelta.k=0;
   }
   const gm=groupOf(mySeat,S), G=nGroups(S);
-  const opps=[]; for(let k=1;k<n;k++)opps.push((mySeat+k)%n);
+  const spettatore=mySeat<0;
+  const opps=[]; if(spettatore) S.seats.forEach((_,i)=>opps.push(i));
+  else for(let k=1;k<n;k++)opps.push((mySeat+k)%n);
   const top=Math.max(...S.points), vinc=S.points.map((p,g)=>p===top?g:-1).filter(g=>g>=0);
+  const assente=!fin&&turn>=0&&seatVia(turn);
+  if(!assente) sciogliChiesto=false;
   // Il tavolo di scopa cresce e cala durante la mano: la misura segue il
   // numero di carte scoperte, con un tetto in vh perché non sfondi in basso.
   const b=S.board.length, folta=n>=5?22:0;
@@ -1156,6 +1238,9 @@ function tavoloScopa(){
     barra=`<p class="turnbar esito">${t}</p>`;
   } else if(turn===mySeat){
     barra=`<p class="turnbar mine">Tocca a te, cala una carta</p>`;
+  } else if(assente){
+    barra=`<p class="turnbar"><b>${nomeDi(turn)}</b> non risponde</p>`
+      +(isHost?barraAssente():'');
   } else {
     const m=S.mossa;
     barra=`<p class="turnbar"><span class="spin"></span>${m&&m.scopa?`<span class="scopa-flash">${m.seat===mySeat?'Scopa tua!':'Scopa di '+nomeDi(m.seat)+'!'}</span> `:''}Sta giocando <b>${nomeDi(turn)}</b></p>`;
@@ -1166,7 +1251,8 @@ function tavoloScopa(){
   <div class="topbar">${conn()}<span class="sp"></span>
     <span class="brisc">Scopa</span>
     ${mutoBtn()}<button id="cl" title="Punteggi" aria-label="Punteggi">${ICO.punti}</button><button id="rg" title="Regole" aria-label="Regole">${ICO.aiuto}</button><button id="x" title="Esci dal tavolo" aria-label="Esci dal tavolo">${ICO.esci}</button></div>
-  <div class="opps">${opps.map(i=>`<span class="opp ${turn===i?'turn':''}" data-seat="${i}">
+  <div class="opps">${opps.map(i=>`<span class="opp ${turn===i?'turn':''}${seatVia(i)?' via':''}" data-seat="${i}"${
+    seatVia(i)?' title="non risponde"':''}>
     <span class="att" aria-hidden="true"></span>
     <span>${nomeDi(i)}${S.teams&&groupOf(i,S)===gm?', con te':''}</span>
     <b>${(S.taken[i]||[]).length}</b>${S.scope[i]?`<span style="color:var(--oro)">${'★'.repeat(Math.min(S.scope[i],3))}</span>`:''}</span>`).join('')}</div>
@@ -1182,13 +1268,13 @@ function tavoloScopa(){
   <div class="scores">${Array.from({length:G},(_,g)=>`
     <div class="sc ${fin&&vinc.includes(g)?'win':''}${g===gm?' mine':''}">
       <div class="lbl">${eti(g)}</div><div class="val">${S.points[g]}</div></div>`).join('')}</div>
-  ${fin?(isHost?'<button class="btn" id="ri">Un\'altra mano</button><button class="btn ghost" id="tn">Torna al tavolo</button>'
+  ${spettatore?attesaPosto():fin?(isHost?'<button class="btn" id="ri">Un\'altra mano</button><button class="btn ghost" id="tn">Torna al tavolo</button>'
                :'<p class="hint" style="text-align:center">Il mazziere può dare di nuovo.</p>')
        :`<div class="hand${dando?' dando':''}">${hand.map((c,i)=>`<button class="slot ${turn===mySeat?'playable':''}${
           carteNuove[i]?' nuova':''}${scelta&&scelta.i===i?' scelta':''}" data-i="${i}"
           ${turn===mySeat?'':'disabled'}>${cardHTML(c)}<span class="tasto">${i+1}</span></button>`).join('')}</div>
         <p class="tastiera">Tasti 1 2 3 per calare, M per i suoni, ? per le regole</p>`}`;
-  $('x').onclick=esci; $('rg').onclick=regole; $('cl').onclick=classifica; legaMuto();
+  $('x').onclick=esci; $('rg').onclick=regole; $('cl').onclick=classifica; legaMuto(); legaSciogli();
   if($('ri'))$('ri').onclick=()=>send({t:'rematch'});
   if($('tn'))$('tn').onclick=()=>send({t:'stanza'});
   legaCarte(b=>{
@@ -1232,6 +1318,27 @@ function inVolo(){
     const b=document.querySelector('.turnbar');
     if(b){ b.className='turnbar inviando'; b.innerHTML='<span class="spin"></span>Mando la carta…'; }
   },450);
+}
+/* Chi guarda e basta: o è in coda per la prossima mano, o il tavolo è pieno.
+   In tutti e due i casi glielo si dice, invece di mostrargli una mano vuota. */
+function attesaPosto(){
+  const inCoda=(S.coda||[]).some(x=>x.id===me.id);
+  return `<p class="attesa-posto">${inCoda
+    ? 'Sei arrivato a mano iniziata. <b>Ti siedi alla prossima.</b>'
+    : 'Sei arrivato a mano iniziata e il tavolo è al completo.<br>Per ora puoi solo guardare.'}</p>`;
+}
+/* Il mazziere può chiudere la mano se uno non risponde più. È l'unica cosa
+   che il battito abilita, e la decide lui: due tocchi, non uno. */
+let sciogliChiesto=false;
+function barraAssente(){
+  return `<button class="btn ghost" id="sciogli" style="margin-top:8px">${
+    sciogliChiesto?'Sicuro? Tocca ancora'
+                  :'Chiudi la mano'}</button>`;
+}
+function legaSciogli(){
+  const b=$('sciogli'); if(!b) return;
+  b.onclick=()=>{ if(!sciogliChiesto){ sciogliChiesto=true; return paint(); }
+    sciogliChiesto=false; send({t:'sciogli'}); };
 }
 function legaCarte(alTocco){
   document.querySelectorAll('.slot').forEach(b=>{
@@ -1382,6 +1489,22 @@ window.addEventListener('keydown',e=>{
     const b=s[+e.key-1]; if(b&&!b.disabled) b.click();
   }
 });
+
+setInterval(()=>{
+  if(!code||!cli||!connected) return;
+  send({t:'qui'});
+  if(isHost){
+    try{ cli.publish(T(code).h,'1',{qos:0}); }catch(e){}
+    if(!S||!S.seats) return;
+    const ora=Date.now();
+    const via=S.seats.filter(x=>x.id!==me.id&&ora-(visti[x.id]||0)>VIA_MS).map(x=>x.id);
+    const chiave=via.join();
+    if(chiave!==viaPrec){ viaPrec=chiave; S.via=via; pubState(); paint(); }
+  } else {
+    const perso=mazzierePerso();
+    if(perso!==persoPrec){ persoPrec=perso; paint(); }
+  }
+},BATTITO);
 
 connect(()=>paint());
 paint();
