@@ -149,6 +149,12 @@ li.nuovo`) che il JS mette solo su quello che è cambiato davvero, confrontando 
 tramite `novita()`. Se aggiungi un'animazione d'entrata, legala a una classe allo stesso
 modo, o ripartirà a ogni stato.
 
+`distribuisci()` fa partire le carte dal mazzo verso i posti, tre alla volta, e la mano
+vera entra quando le sue sono arrivate (`.hand.dando` la tiene ferma nel frattempo). Vola
+in un piano a parte, `#volo`, sopra al tavolo e sotto ai pannelli. `sidistribuisce(st)`
+decide se ha senso animarla: solo all'inizio vero di una mano, se no chi entra a partita
+in corso si vedrebbe distribuire carte già giocate.
+
 `ritmoPresa(st)` calcola la scaletta della presa: quando si accende ogni carta durante il
 conteggio, quando batte la carta che vince, quando parte la raccolta, quando è finito
 tutto. **La usano sia il client per animare sia il mazziere in `autoResolve()` per sapere

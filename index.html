@@ -246,6 +246,7 @@ input[type=text]:focus{outline:2px solid var(--oro);outline-offset:1px}
 .slot:nth-child(2){animation-delay:-.4s}
 .slot:nth-child(3){animation-delay:-3.1s}
 .slot.gone,.slot.premuta,.slot.scelta{animation:none}
+.hand.dando .slot.nuova .card{opacity:0;animation:none}
 @keyframes ondeggia{0%,100%{transform:rotate(var(--r)) translateY(0)}
   50%{transform:rotate(calc(var(--r) + .6deg)) translateY(-3px)}}
 .slot:disabled{opacity:.58;filter:saturate(.72)}
@@ -352,12 +353,17 @@ input[type=text]:focus{outline:2px solid var(--oro);outline-offset:1px}
   .scores{margin-top:6px}
   .hand{padding-top:10px}
 }
+/* Il piano su cui volano le carte durante la distribuzione: sta sopra al
+   tavolo e sotto ai pannelli, e non intercetta i tocchi. */
+#volo{position:fixed;inset:0;pointer-events:none;z-index:18}
+#volo .backcard{position:absolute;top:0;left:0;will-change:transform}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>
 <div class="wrap" id="app"><p class="lede" style="margin-top:40vh">Collegamento…</p></div>
 <div id="ov"></div>
+<div id="volo" aria-hidden="true"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.10.1/mqtt.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
@@ -469,7 +475,7 @@ const SND={
   presa:(g)=>{const k=g>=20?1.26:g>=10?1.12:1; tono(587*k,0,.14);tono(880*k,.09,.22);},
   presaMia:(g)=>{const k=g>=20?1.26:g>=10?1.12:1;
     tono(659*k,0,.13);tono(880*k,.08,.13);tono(1175*k,.16,.3);},
-  distribuisci:()=>{for(let i=0;i<4;i++)fruscio(i*.11,.26);},
+  dai:(t0,i)=>fruscio(t0,.24,1050+(i%3)*220),
   entra:()=>{tono(523,0,.12,'sine',.09);tono(784,.08,.2,'sine',.09);},
   finePro:()=>{[523,659,784,1046].forEach((f,i)=>tono(f,i*.11,.35));},
   fineContro:()=>{[440,392,330].forEach((f,i)=>tono(f,i*.13,.4));}
@@ -652,7 +658,7 @@ function vibra(p){ if(muto||RM) return; try{ navigator.vibrate && navigator.vibr
 function suoniDiff(){
   if(!S||S.phase==='attesa') return;
   if(S.game==='scopa'||!S.table){
-    if(S.phase==='gioco'&&prev.fase!=='gioco') SND.distribuisci();
+    if(S.phase==='gioco'&&prev.fase!=='gioco'){}
     else if(S.phase==='gioco'&&S.turn===mySeat&&prev.turn!==mySeat){ SND.tuoTurno(); vibra(14); }
     if(S.phase==='fine'&&prev.fase!=='fine'){
       const top=Math.max(...S.points);
@@ -673,7 +679,6 @@ function suoniDiff(){
     const top=Math.max(...S.points);
     S.points[groupOf(mySeat,S)]===top?SND.finePro():SND.fineContro();
   }
-  if(S.phase==='gioco'&&prev.fase!=='gioco') SND.distribuisci();
   prev={turn:S.turn,tavolo:t,fase:S.phase,punti:S.points?S.points.join():null};
 }
 
@@ -733,6 +738,54 @@ function valoreCarta(el,v){
              {transform:'translate(-50%,-38px) scale(1)',opacity:0}],
             {duration:820,easing:'cubic-bezier(.2,.9,.3,1)'}).onfinish=()=>s.remove();
 }
+/* --- la distribuzione ---
+   Il mazzo c'era e il suono pure, ma le carte comparivano già in mano.
+   Qui partono davvero dal mazzo e vanno posto per posto, tre alla volta
+   come si fa al tavolo; la tua entra quando le sue sono arrivate. */
+function distribuisci(st,mio,versoTavolo){
+  const piano=$('volo'), mano=document.querySelector('.hand');
+  if(RM||!piano) return 0;
+  piano.innerHTML='';
+  const dal=rectOf('.deckbox .backcard')||rectOf('.deckbox');
+  if(!dal){ if(mano) mano.classList.remove('dando'); return 0; }
+  const passo=56, volo=380, centroDa=centro(dal);
+  const ordine=[]; for(let k=0;k<st.n;k++) ordine.push(((st.first||0)+k)%st.n);
+  let t=0, mioArrivo=volo;
+  const parte=(meta,scarto,sc,giro,i)=>{
+    const el=document.createElement('span'); el.className='backcard';
+    el.style.cssText=`left:${dal.left}px;top:${dal.top}px;width:${dal.width}px;height:${dal.height}px`;
+    piano.appendChild(el);
+    const dx=meta.x+scarto-centroDa.x, dy=meta.y-centroDa.y;
+    const rot=giro+(dx>0?7:-7);
+    el.animate([
+      {transform:'none',opacity:1},
+      {transform:`translate(${dx*.55}px,${dy*.55-28}px) rotate(${rot*.6}deg) scale(${(sc*2+1)/3})`,opacity:1,offset:.6},
+      {transform:`translate(${dx}px,${dy}px) rotate(${rot}deg) scale(${sc})`,opacity:.92}
+    ],{duration:volo,delay:t,easing:'cubic-bezier(.3,.75,.35,1)',fill:'both'}).onfinish=()=>el.remove();
+    SND.dai(t/1000,i);
+    t+=passo;
+  };
+  ordine.forEach(seat=>{
+    const suo=seat===mio?(mano?mano.getBoundingClientRect():null)
+                        :rectOf('.opp[data-seat="'+seat+'"]');
+    const meta=suo?centro(suo):{x:innerWidth/2,y:innerHeight/2};
+    for(let k=0;k<3;k++){
+      parte(meta,(k-1)*(seat===mio?26:7),seat===mio?1.3:.45,(k-1)*9,k);
+      if(seat===mio) mioArrivo=t-passo+volo;
+    }
+  });
+  const bd=versoTavolo?rectOf('.board'):null;
+  if(bd) for(let k=0;k<versoTavolo;k++)
+    parte(centro(bd),(k-(versoTavolo-1)/2)*22,.8,(k-1)*6,k);
+  if(mano) setTimeout(()=>mano.classList.remove('dando'),Math.max(0,mioArrivo-220));
+  return t+volo;
+}
+/* Vale la pena animarla solo all'inizio vero di una mano: chi entra a
+   partita in corso non deve vedersi distribuire carte già giocate. */
+const sidistribuisce=st=>st.phase==='gioco'&&!(st.table||[]).length
+  && Object.values(st.hands||{}).every(h=>h.length===3)
+  && (st.game!=='scopa'||st.board.length===4);
+
 /* Il totale non salta al valore nuovo: ci arriva. */
 function salePunteggio(el,da,a){
   if(!el) return;
@@ -955,6 +1008,7 @@ function tavolo(){
   const chiaviMano=hand.map(chiave);
   const manoNuova=S.mano!==visto.mano;
   const carteNuove=manoNuova?chiaviMano.map(()=>true):novita(chiaviMano,visto.carte);
+  const dando=manoNuova&&!RM&&sidistribuisce(S);
   visto={mano:S.mano,carte:chiaviMano,board:[],posti:visto.posti};
 
   let barra;
@@ -995,7 +1049,7 @@ function tavolo(){
       <div class="lbl">${eti(g)}</div><div class="val">${S.points[g]}</div></div>`).join('')}</div>
   ${fin?(isHost?'<button class="btn" id="ri">Un\'altra mano</button><button class="btn ghost" id="tn">Torna al tavolo</button>'
                :'<p class="hint" style="text-align:center">Il mazziere può dare di nuovo.</p>')
-       :`<div class="hand">${hand.map((c,i)=>`<button class="slot ${turn===mySeat?'playable':''}${carteNuove[i]?' nuova':''}" data-i="${i}"
+       :`<div class="hand${dando?' dando':''}">${hand.map((c,i)=>`<button class="slot ${turn===mySeat?'playable':''}${carteNuove[i]?' nuova':''}" data-i="${i}"
           ${turn===mySeat&&S.table.length<n?'':'disabled'}>${c.s===S.trumpSuit?'<span class="brisc-flag"></span>':''}${cardHTML(c)}<span class="tasto">${i+1}</span></button>`).join('')}</div>
         <p class="tastiera">Tasti 1 2 3 per calare, M per i suoni, ? per le regole</p>`}`;
   $('x').onclick=esci; $('rg').onclick=regole; $('cl').onclick=classifica; legaMuto();
@@ -1016,7 +1070,8 @@ function tavolo(){
   // volta, si scopre chi prende, si raccoglie. Il mazziere cambia stato solo
   // quando è finito tutto (ritmoPresa vale per lui come per gli altri).
   const len=S.table.length, nuovaMano=S.mano!==anim.mano;
-  if((len>anim.len&&!nuovaMano)||(len&&nuovaMano)) requestAnimationFrame(lancia);
+  if(dando) requestAnimationFrame(()=>distribuisci(S,mySeat,0));
+  else if((len>anim.len&&!nuovaMano)||(len&&nuovaMano)) requestAnimationFrame(lancia);
   if(pieno&&!fin){
     const rit=ritmoPresa(S);
     contaPresa(rit);
@@ -1060,6 +1115,7 @@ function tavoloScopa(){
   const chiaviMano=hand.map(chiave);
   const carteNuove=manoNuova?chiaviMano.map(()=>true):novita(chiaviMano,visto.carte);
   const boardNuove=manoNuova?chiaviBoard.map(()=>true):novita(chiaviBoard,visto.board);
+  const dando=manoNuova&&!RM&&sidistribuisce(S);
   visto={mano:S.mano,carte:chiaviMano,board:chiaviBoard,posti:visto.posti};
   const inSel=scelta?scelta.opts[scelta.k].idx:[];
 
@@ -1099,7 +1155,7 @@ function tavoloScopa(){
       <div class="lbl">${eti(g)}</div><div class="val">${S.points[g]}</div></div>`).join('')}</div>
   ${fin?(isHost?'<button class="btn" id="ri">Un\'altra mano</button><button class="btn ghost" id="tn">Torna al tavolo</button>'
                :'<p class="hint" style="text-align:center">Il mazziere può dare di nuovo.</p>')
-       :`<div class="hand">${hand.map((c,i)=>`<button class="slot ${turn===mySeat?'playable':''}${
+       :`<div class="hand${dando?' dando':''}">${hand.map((c,i)=>`<button class="slot ${turn===mySeat?'playable':''}${
           carteNuove[i]?' nuova':''}${scelta&&scelta.i===i?' scelta':''}" data-i="${i}"
           ${turn===mySeat?'':'disabled'}>${cardHTML(c)}<span class="tasto">${i+1}</span></button>`).join('')}</div>
         <p class="tastiera">Tasti 1 2 3 per calare, M per i suoni, ? per le regole</p>`}`;
@@ -1123,6 +1179,7 @@ function tavoloScopa(){
   if($('sc-gi'))$('sc-gi').onclick=()=>{ scelta.k=(scelta.k+1)%scelta.opts.length; vibra(8); paint(); };
   // giostra
   const nuovaMano=S.mano!==anim.mano;
+  if(dando) requestAnimationFrame(()=>distribuisci(S,mySeat,4));
   if(S.mossa&&!nuovaMano&&S.mossa!==anim.mossa){
     const mia=S.mossa.seat===mySeat;
     if(S.mossa.presi){
