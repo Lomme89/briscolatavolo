@@ -255,6 +255,7 @@ const attesa = ms => new Promise(r => setTimeout(r, ms));
       vero: document.documentElement.scrollHeight, i: innerHeight,
       cnt: (document.querySelector('.cnt') || {}).textContent || '',
       briscolaLi: !!document.querySelector('.trumpslot'),
+      file: document.querySelectorAll('.hand').length,
       titolo: (document.querySelector('.esitone') || {}).textContent || '',
       coriandoli: document.querySelectorAll('.coriandolo').length
     }));
@@ -302,6 +303,38 @@ const attesa = ms => new Promise(r => setTimeout(r, ms));
       `tavolo piacentino in 6 su ${tel[0]}: non scrolla (${m.vero} su ${m.i}, --ar ${m.ar})`);
     pagine.splice(pagine.indexOf(p), 1);
     await c.close();
+  }
+
+  /* I giochi nuovi: dieci carte in mano stanno su due file, e l'asta della
+     chiamata è una schermata sua. Nessuna delle due deve far scrollare. */
+  const inAsta = `
+    code='ABCD'; isHost=true; mySeat=0; connected=true;
+    const carte=[];for(let s=0;s<4;s++)for(let r=1;r<=10;r++)carte.push({s,r});
+    const mani={}; for(let i=0;i<5;i++) mani[i]=carte.slice(i*8,i*8+8);
+    S={code:'ABCD',phase:'asta',game:'chiamata',teams:false,first:0,albo:{},mano:1,n:5,
+       seats:${posti(5)},hands:mani,deck:[],table:[],turn:-1,trump:null,trumpSuit:-1,
+       points:[0,0],tr:Array(5).fill(0),pp:Array(5).fill(0),
+       chiamante:-1,socio:-1,chiamata:null,rivelato:false,
+       asta:{turn:0,aperto:0,offerta:{seat:1,r:10},fuori:[2],vinta:false}};
+    misuraSchermo(); paint();`;
+  const inDieci = g => `
+    code='ABCD'; isHost=true; mySeat=0; connected=true;
+    const carte=[];for(let s=0;s<4;s++)for(let r=1;r<=10;r++)carte.push({s,r});
+    const mani={}; for(let i=0;i<4;i++) mani[i]=carte.slice(i*10,i*10+10);
+    S={code:'ABCD',phase:'gioco',game:'${g}',teams:true,first:0,albo:{},mano:1,n:4,
+       seats:${posti(4)},hands:mani,deck:[],turn:0,points:[0,0],
+       tr:[0,0,0,0],pp:[0,0,0,0],trump:null,trumpSuit:-1};
+    if('${g}'==='scopone'){ S.board=[]; S.taken=[[],[],[],[]]; S.scope=[0,0,0,0]; S.lastTake=null; S.mossa=null; }
+    else { S.table=[]; S.terzi=[0,0]; S.last=null; }
+    misuraSchermo(); paint();`;
+  for (const tel of TEL) {
+    const a = await conStato(tel, inAsta, 500);
+    ok(a.vero <= a.i + 1, `asta della chiamata su ${tel[0]}: non scrolla (${a.vero} su ${a.i})`);
+    for (const g of ['tressette', 'scopone']) {
+      const m = await conStato(tel, inDieci(g), 500);
+      ok(m.vero <= m.i + 1, `${g} con dieci carte in mano su ${tel[0]}: non scrolla (${m.vero} su ${m.i})`);
+      ok(m.file === 2, `${g}: la mano sta su due file`);
+    }
   }
 
   for (const [n, gioco, vinco, vinta] of [[2, 'briscola', 0, true], [4, 'briscola', 1, false], [6, 'scopa', 0, true]]) {

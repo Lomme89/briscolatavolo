@@ -28,16 +28,37 @@ async function partita(gioco, n, errori) {
   }
   await finoA(() => (stato(cl[0]) || {}).seats && stato(cl[0]).seats.length === n, 9000, n + ' seduti');
 
-  if (gioco === 'scopa') {
-    const b = $$(cl[0], '#gm button').find(x => x.dataset.v === 'scopa');
-    b.click();
-    await finoA(() => (stato(cl[0]) || {}).game === 'scopa', 4000, 'gioco scopa');
+  if (gioco !== 'briscola') {
+    $$(cl[0], '#gm button').find(x => x.dataset.v === gioco).click();
+    await finoA(() => (stato(cl[0]) || {}).game === gioco, 4000, 'gioco ' + gioco);
   }
 
   // si distribuisce
   await finoA(() => $(cl[0], '#via'), 4000, 'bottone distribuisci');
   $(cl[0], '#via').click();
-  await finoA(() => (stato(cl[0]) || {}).phase === 'gioco', 6000, 'mano iniziata');
+  await finoA(() => ['gioco', 'asta'].indexOf((stato(cl[0]) || {}).phase) >= 0, 6000, 'mano iniziata');
+
+  /* La chiamata comincia con l'asta: si scende o si passa, e chi resta dice
+     il seme. L'ultimo rimasto senza offerta deve per forza chiamare, se no
+     passano tutti e si ridà all'infinito. */
+  const ta = Date.now();
+  while (Date.now() - ta < 40000) {
+    const s = stato(cl[0]);
+    if (!s || s.phase !== 'asta') break;
+    if (s.asta.vinta) {
+      const b = $$(cl[s.chiamante], '#semi [data-s]');
+      if (b.length) b[Math.floor(Math.random() * b.length)].click();
+      await attesa(70); continue;
+    }
+    const c = cl[s.asta.turn];
+    const dentro = s.seats.map((_, i) => i).filter(i => s.asta.fuori.indexOf(i) < 0);
+    const b = $$(c, '#punte [data-r]');
+    const devo = dentro.length === 1 && !s.asta.offerta;
+    if (b.length && (devo || Math.random() < .45)) b[0].click();
+    else if ($(c, '#passo')) $(c, '#passo').click();
+    else break;
+    await attesa(70);
+  }
 
   // si gioca fino alla fine
   const t0 = Date.now();
@@ -60,17 +81,29 @@ async function partita(gioco, n, errori) {
 
   const fin = stato(cl[0]);
   const err = [];
-  if (!fin || fin.phase !== 'fine') err.push('la mano non e\' finita dopo ' + mosse + ' mosse');
+  if (!fin || fin.phase !== 'fine') err.push('la mano non e\' finita (mosse ' + mosses(mosse) + ')');
   else {
-    if (gioco === 'scopa') {
+    if (gioco === 'scopa' || gioco === 'scopone') {
       const carte = Object.values(fin.taken).reduce((a, v) => a + v.length, 0);
       if (carte !== 40) err.push('carte raccolte ' + carte + ' invece di 40');
       if (fin.board.length) err.push('sul tavolo restano ' + fin.board.length + ' carte');
+    } else if (gioco === 'tressette' || gioco === 'treperdere') {
+      /* Trentadue terzi nelle carte più tre dell'ultima presa: trentacinque. */
+      const t = (fin.terzi || []).reduce((a, b) => a + b, 0);
+      if (t !== 35) err.push('terzi in tutto ' + t + ' invece di 35');
+      if (fin.deck.length) err.push('nel mazzo restano ' + fin.deck.length + ' carte');
     } else {
       const tot = fin.points.reduce((a, b) => a + b, 0);
       if (tot !== 120) err.push('punti totali ' + tot + ' invece di 120');
       if (fin.deck.length) err.push('nel mazzo restano ' + fin.deck.length + ' carte');
       if (Object.values(fin.hands).some(h => h.length)) err.push('qualcuno ha ancora carte in mano');
+      if (gioco === 'chiamata') {
+        if (!(fin.rivelato || fin.socio < 0)) err.push('il socio non si è mai visto');
+        const vinceChiama = fin.points[0] >= 61;
+        const alboOk = fin.seats.every((x, i) =>
+          !!fin.albo[x.id] === ((i === fin.chiamante || i === fin.socio) === vinceChiama));
+        if (!alboOk) err.push('l\'albo non torna con chi ha vinto');
+      }
     }
     // tutti d'accordo
     for (let i = 1; i < n; i++) {
@@ -84,10 +117,13 @@ async function partita(gioco, n, errori) {
   cl.forEach(c => c.dom.window.close());
   return { err, punti: fin ? fin.points.join('-') : '?', mosse };
 }
+const mosses = m => m;
 
 (async () => {
   const errori = [];
-  const casi = [['briscola', 2], ['briscola', 3], ['briscola', 4], ['scopa', 2], ['scopa', 3], ['scopa', 4]];
+  const casi = [['briscola', 2], ['briscola', 3], ['briscola', 4],
+    ['scopa', 2], ['scopa', 3], ['scopa', 4], ['scopone', 4],
+    ['tressette', 2], ['tressette', 4], ['treperdere', 4], ['chiamata', 5]];
   let ko = 0;
   for (const [g, n] of casi) {
     const t = Date.now();

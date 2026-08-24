@@ -1,8 +1,9 @@
 # Briscola al tavolo
 
-Webapp per giocare a **briscola** e **scopa** con carte napoletane quando si è seduti
-insieme senza un mazzo vero. Ognuno usa il proprio telefono, un codice di quattro lettere
-tiene insieme il tavolo. Da 2 a 6 giocatori.
+Webapp per giocare a carte napoletane quando si è seduti insieme senza un mazzo vero.
+Ognuno usa il proprio telefono, un codice di quattro lettere tiene insieme il tavolo.
+Da 2 a 6 giocatori. Sei giochi: **briscola**, **briscola chiamata**, **scopa**,
+**scopone scientifico**, **tressette** e **tressette a perdere**.
 
 In produzione su GitHub Pages: `https://lomme89.github.io/briscolatavolo/`
 
@@ -65,13 +66,17 @@ avvio. Icone e manifest, che cambiano di rado, restano cache-first.
 | Funzione | Ruolo |
 |---|---|
 | `handle(a)` | unico punto d'ingresso delle azioni, gira solo sul mazziere |
-| `deal()` / `dealScopa()` | distribuzione, smista in base a `S.game` |
-| `autoResolve()` | chiude la presa a briscola dopo 1700 ms |
+| `deal()` / `dealScopa()` / `dealChiamata()` | distribuzione, smista in base a `S.game` |
+| `autoResolve()` | chiude la presa dei giochi a mano, con `ritmoPresa()` |
+| `vinceTre(t)` / `terzi(c)` | chi prende e quanto vale, a tressette |
+| `puoGiocare(st,seat,i)` | l'obbligo di rispondere al seme |
+| `vincitori(st)` | chi ha vinto: il massimo, o il minimo a perdere, o i 61 della chiamata |
 | `giocaScopa()` / `finisciScopa()` | mossa e conteggio finale a scopa |
 | `prese(board, val)` | tutte le prese possibili con una carta |
 | `contaScopa(st)` | carte, denari, settebello, primiera, scope |
 | `paint()` | smista alle viste, poi `suoniDiff()` |
-| `tavolo()` / `tavoloScopa()` | le due viste di gioco |
+| `tavolo()` / `tavoloScopa()` / `tavoloAsta()` | le viste di gioco e quella dell'asta |
+| `ventaglioMano()` / `misureMano()` | la mano, su una fila o su due |
 | `lancia()` / `raccogli()` / `scossa()` | animazioni, Web Animations API |
 | `avvisa(testo)` | l'unico posto dove dire una cosa breve |
 | `nega(el, testo)` | un tocco che non può fare niente, e il perché |
@@ -86,11 +91,40 @@ avvio. Icone e manifest, che cambiano di rado, restano cache-first.
 Le viste ricostruiscono `#app` via `innerHTML` a ogni cambio di stato. È volutamente
 grezzo e va benissimo a queste dimensioni: non introdurre un framework.
 
+### Il registro dei giochi
+
+Ogni gioco è una riga in `GIOCHI`, e aggiungerne uno è aggiungere una riga più il
+pezzo di motore che gli serve:
+
+```js
+const GIOCHI={
+  briscola:  {nome:'Briscola', titolo:'La briscola',          posti:[2,3,4,5,6], vista:'briscola'},
+  chiamata:  {nome:'Chiamata', titolo:'La briscola chiamata', posti:[5],         vista:'briscola'},
+  scopa:     {nome:'Scopa',    titolo:'La scopa',             posti:[2,3,4,6],   vista:'scopa'},
+  scopone:   {nome:'Scopone',  titolo:'Lo scopone scientifico',posti:[4],        vista:'scopa', sempreSquadre:true},
+  tressette: {nome:'Tressette',titolo:'Il tressette',         posti:[2,4],       vista:'briscola', sempreSquadre:true},
+  treperdere:{nome:'A perdere',titolo:'Il tressette a perdere',posti:[2,4],      vista:'briscola', sempreSquadre:true}
+};
+```
+
+`vista` dice quale delle due viste di gioco disegna il tavolo, `posti` in quanti si
+può giocare (la home spegne gli altri numeri con `nega()`, non con `disabled`),
+`sempreSquadre` che le squadre non sono una scelta. Non guardare mai `S.game`
+direttamente per sapere quale vista o quanti posti: passa da `gioco(st)`,
+`vistaDi(st)` e `siGiocaIn(g,k)`.
+
+I punti non sono più per posto ma **per gruppo**: `nGroups(st)` quanti sono e
+`groupOf(seat,st)` in quale sta un posto. A squadre è `seat%2`, alla chiamata è
+«chiamante e socio» contro «gli altri tre», altrove è il posto stesso. Se scrivi
+qualcosa che somma punti, passa da lì: con l'indice del posto la chiamata conta
+male e basta.
+
 ### Forma dello stato
 
 ```js
 S = {
-  code, game: 'briscola'|'scopa', phase: 'attesa'|'gioco'|'fine',
+  code, game: 'briscola'|'chiamata'|'scopa'|'scopone'|'tressette'|'treperdere',
+  phase: 'attesa'|'asta'|'gioco'|'fine',
   seats: [{id, name}],        // denso, max 6, l'indice è il posto
   coda: [{id, name}],         // chi è arrivato a mano iniziata, entra al prossimo giro
   via: [playerId],            // chi non manda il battito da mezzo minuto
@@ -98,8 +132,13 @@ S = {
   hands: {seat: [carta]}, deck: [carta],
   // briscola
   trump, trumpSuit, table: [{seat, c}], turn, points: [], tr: [], pp: [],
-  // scopa
-  board: [carta], taken: {seat: [carta]}, scope: [], lastTake, mossa, esito
+  // scopa e scopone
+  board: [carta], taken: {seat: [carta]}, scope: [], lastTake, mossa, esito,
+  // tressette: i punti veri stanno in terzi, points ne è la parte intera
+  terzi: [],
+  // chiamata
+  asta: {turn, aperto, offerta:{seat,r}, fuori:[seat], vinta},
+  chiamata: carta, chiamante: seat, socio: seat, rivelato
 }
 ```
 
@@ -180,6 +219,35 @@ fante, 7, 6, 5, 4, 2. Punti 11/10/4/3/2, totale 120.
 Il numero di giocatori non divide 40, quindi **in tre si toglie un due e in sei se ne
 tolgono quattro**: sono carte da zero punti, il totale resta 120 e le carte finiscono
 tutte insieme. In 4 e 6 si può giocare a squadre alternate (`seat % 2`).
+
+**Briscola chiamata**, in cinque soli. Otto carte a testa, mazzo intero, niente
+pesca. Prima si fa l'**asta**: a giro si chiama un rango sempre più basso —
+asso, tre, re, cavallo, fante, sette, sei, cinque, quattro, due — e chi passa è
+fuori per sempre. Resta uno: quello sceglie il **seme**, che diventa briscola, e
+chi ha in mano quella carta esatta è il suo socio **senza saperlo dire**. Il socio
+si scopre da solo quando quella carta cade: fino a quel momento `S.rivelato` è
+falso e nessuno legge «con te» sotto un nome. Se passano tutti si ridà.
+Chiamante e socio vincono con **61 punti su 120**; se il chiamante chiama una
+carta che ha già in mano gioca da solo contro quattro, e `S.socio` resta `-1`.
+
+**Tressette**, in due o in quattro, sempre a squadre in quattro. Dieci carte a
+testa, niente briscola: **si risponde al seme se si può** — è l'unica regola
+dell'app che vieta una carta per il suo seme, e la fa rispettare `puoGiocare()`,
+che serve sia al mazziere per validare sia alla vista per smorzare le carte.
+Ordine di forza: tre, due, asso, re, cavallo, fante, sette, sei, cinque, quattro.
+I punti si contano in **terzi**: l'asso ne vale tre, il due, il tre e le tre
+figure uno ciascuno, il resto niente; l'ultima presa vale un punto intero, cioè
+tre terzi. In tutto undici punti. I terzi che avanzano non contano — `S.points` è
+`Math.floor(S.terzi/3)` — ma si vedono salire lo stesso, scritti come frazione a
+fianco al punteggio, se no un punto che non si muove per tre prese sembra rotto.
+
+**Tressette a perdere**: identico, ma vince chi fa **meno** punti. È l'unico
+gioco dove il massimo non vince, e per questo chi vince non lo decide più la vista
+ma `vincitori(st)`.
+
+**Scopone scientifico**, in quattro e sempre a squadre. È la scopa col mazzo
+distribuito tutto subito: dieci carte a testa, quattro sul tavolo, niente pesca.
+Le regole della presa e i conti sono quelli della scopa.
 
 **Scopa.** 4 carte scoperte, 3 in mano. Se sul tavolo c'è una carta di valore uguale la
 presa di quella è **obbligatoria**, niente somme; se le combinazioni possibili sono più
@@ -324,6 +392,18 @@ safe-area ne restano 692, e su due file le carte non ci stavano. In sei si passa
 doppio. Nella stessa situazione il blocco si sposta a sinistra (`.felt.folto`) per non
 finire sotto il mazzo.
 
+**Da sei carte in su la mano va su due file.** Otto carte alla chiamata e dieci a
+tressette e scopone su una fila sola verrebbero larghe un dito: `ventaglioMano()`
+le spezza in due `.hand` e `misureMano()` cambia il conto di `--cw` di conseguenza —
+il termine in larghezza si divide per quante ce n'è per fila, quello in altezza dà a
+ogni fila 8.7 unità di `--vhu` (8.0 su `html.minuscolo`), che è quanto si può prendere
+senza far scrollare la pagina. Non è il doppio del budget di una fila: due file di
+carte piccole stanno in meno spazio di quanto sembri, perché si sovrappongono.
+
+Per lo stesso motivo la pastiglia di un avversario **non disegna dieci dorsi**: da sei
+carte in su ne mostra uno solo e ci scrive accanto quante sono. Con dieci mini-carte la
+riga dei nomi andava su tre file e si mangiava il tavolo.
+
 La home sta in piedi su tre scaglioni di altezza. Sopra i 700px va tutto per intero;
 sotto, il ventaglio di copertina si rimpicciolisce e la riga di presentazione esce; sotto
 i 620 restano solo titolo, campi e bottoni.
@@ -347,7 +427,9 @@ sovrascrivere dall'alto.
 **La stanza invece si misura davvero**, perché la lista dei posti cresce fino a sei righe
 e il totale cambia col telefono. `stanza()` disegna a QR ancora vuoto, chiede a
 `spazioQR()` quanto resta, e se non basta toglie qualcosa e rimisura: prima le due righe
-di spiegazione (`.senzanote`), poi i posti su due colonne (`.stretta`). Alla fine riprova
+di spiegazione (`.senzanote`), poi i posti su due colonne (`.stretta`), e in ultimo
+il QR se ancora non basta — coi sei bottoni dei giochi la scelta del numero di posti
+è cresciuta di una riga, e su un iPhone SE la stanza in sei sforava di quaranta pixel. Alla fine riprova
 a rimettere le spiegazioni, perché mettere i posti su due colonne non toglie niente
 mentre toglierle sì — si prova nell'altro ordine solo perché su un telefono stretto le
 due colonne accorciano i nomi. Quello che avanza se lo prende il QR, fino a 240px: più è
@@ -389,7 +471,9 @@ Il resto segue tre regole: le carte si contano una alla volta e ognuna suona un 
 più su della precedente (`SND.conta`, scala in `SCALA`); i totali non saltano al valore
 nuovo ma ci arrivano (`salePunteggio`); quanto vale il giro allunga l'attesa prima di
 scoprire chi prende, e la scossa dello schermo è riservata ai giri da venti punti in su e
-alle scope.
+alle scope. **La soglia dipende dal gioco**: a tressette un giro grosso sono sei terzi,
+non venti punti, e con la soglia della briscola non si sarebbe vista una scossa mai —
+`ritmoPresa()` e `valore(st,c)` la scelgono da `S.game`.
 
 `vibra()` segue il tasto del muto, perché quel tasto dice "silenzia", non "silenzia solo
 l'audio".
@@ -421,16 +505,19 @@ solo `S.via`). Stessa idea di `chiavePresa` a briscola.
 ## Test
 
 `harness.js` monta più client jsdom con un broker MQTT finto in-process e li fa giocare
-davvero. `test2.js` porta a termine partite intere di briscola e scopa da 2 a 4 e verifica
-che tutte e 40 le carte siano raccolte, che i punteggi coincidano su ogni client e che non
-ci siano eccezioni.
+davvero. `test2.js` porta a termine una partita intera per ognuno degli undici modi di
+giocare — briscola in 2, 3 e 4, scopa in 2, 3 e 4, scopone in 4, tressette in 2 e 4,
+a perdere in 4, chiamata in 5 — e verifica che tutte e 40 le carte siano raccolte, che
+i punteggi coincidano su ogni client e che non ci siano eccezioni. Il caso della
+chiamata guida anche l'asta, perché senza il seme scelto la partita non parte.
 
 Servono due pacchetti, e non sono dipendenze del sito: `npm i jsdom
 playwright-core`. Poi `node test2.js` per le partite e `node vista.js` per la
 prova in Chromium, che tira su un server locale e guarda quello che jsdom non
 può vedere: che gli avvisi compaiano, che il codice finisca davvero negli
 appunti, che il QR si apra, e che a nessuna misura di schermo la pagina prenda
-a scrollare. Lascia gli scatti in `scatti/`.
+a scrollare — la schermata dell'asta e la mano da dieci carte comprese, che sono le
+due che possono sforare per prime. Lascia gli scatti in `scatti/`.
 
 In `vista.js` ogni client sta in un **contesto suo**: due schede dello stesso
 browser condividono il `localStorage`, quindi lo stesso `bt_id`, e per il
@@ -443,7 +530,6 @@ allineati i client.
 
 ## Idee non ancora fatte
 
-- Briscola chiamata in cinque, con asta e socio segreto.
 - Altri mazzi regionali: serve un foglio come quello napoletano, stessa griglia 10×4.
 - Partita lunga a 11 o 21 punti invece della singola mano.
 - Migrazione dell'autorità se il mazziere se ne va.
