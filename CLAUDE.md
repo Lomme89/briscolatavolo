@@ -76,6 +76,9 @@ avvio. Icone e manifest, che cambiano di rado, restano cache-first.
 | `nega(el, testo)` | un tocco che non può fare niente, e il perché |
 | `presenzaDiff()` | chi si è appena seduto, chi se n'è andato, chi aspetta |
 | `volaPrese()` / `timbroScopa()` | la presa e la scopa, a scopa |
+| `finePartita()` | la mano finita: conti a schermo intero, e la festa |
+| `festeggia()` / `coriandoli()` | gli effetti per chi vince |
+| `suonoCarta()` | schiocco, corpo e panno: una carta che si posa |
 | `misuraSchermo()` | le fasce di altezza, al netto degli incavi |
 | `spazioQR()` / `misuraHome()` | quanto cede il QR, quanto cede il ventaglio |
 
@@ -185,6 +188,23 @@ settebello, primiera (7=21, 6=18, A=16, 5=15, 4=14, 3=13, 2=12, figure=10), più
 scopa; in parità il punto non si assegna. **In cinque la scopa non è giocabile**, i conti
 non tornano.
 
+## La fine della mano
+
+A mano finita non si torna al tavolo vuoto: `finePartita()` prende tutto lo schermo e
+mostra chi ha vinto, i punti che salgono da zero e la tabella dei conti — che prima
+stava dietro al bottone dei punteggi, cioè dietro a un tocco che nessuno faceva.
+
+È l'unica schermata con dentro una lista che può essere più lunga dello spazio, e per
+questo è anche l'unica che si prende un'altezza **definita** (`.wrap.schermointero`):
+con `min-height` il contenitore cresce col contenuto e i figli non si stringono mai,
+quindi a scorrere finirebbe la pagina invece della tabella.
+
+Se hai vinto tu parte `festeggia()`: coriandoli in `#volo`, scossa, vibrazione e
+`SND.trionfo()`. È l'unico punto dell'app dove il ritmo non è misurato, ed è voluto —
+tutto il resto è tenuto corto apposta, questo no. Chi ha chiesto meno movimento
+(`prefers-reduced-motion`) riceve solo il suono e la vibrazione. La festa si fa una
+volta per mano: la guardia è `festaFatta`, se no ogni messaggio di stato la rifarebbe.
+
 ## Temi
 
 Ci sono tre temi, in `TEMI`: **classico** (napoletane, feltro verde, EB Garamond),
@@ -193,9 +213,23 @@ sistema in grassetto stretto). Ognuno porta il suo mazzo, la sua palette e il su
 carattere; il tema è una scelta **personale**, sta nel `localStorage` e non nello stato
 del tavolo, quindi allo stesso tavolo si può stare uno al chiaro e uno allo scuro.
 
+Le **cornici** hanno un token loro, `--bordo`, separato da `--felt-line`: nel classico
+sono dorate, perché è un mazzo da bar e le scatole erano bordate d'oro, e nei due
+moderni restano il grigio di prima. Nel classico c'è anche un secondo filo più chiaro
+dentro al bordo (`inset 0 0 0 1px`): è quello che fa leggere una cornice come dorata
+invece che come una riga colorata. Se aggiungi una superficie incorniciata usa
+`var(--bordo)`, non `var(--felt-line)`.
+
 I colori stanno tutti in token sotto `html[data-tema=…]`. Se aggiungi una regola non
 scrivere un colore a mano: usa un token, se no il tema sbagliato ti si vede addosso.
 `--acc-rgb` è l'accento in componenti separate, per gli aloni in `rgba()`.
+
+La **briscola** in alto a destra sta a `--tw`, una volta e mezza il dorso: è la carta
+che si guarda per tutta la mano e a misura di dorso non si leggeva. Esce da sotto il
+mazzo, che le sta sopra (`z-index` dentro `.deckbox`, che fa contesto apposta: se no il
+dorso finirebbe sopra anche alle carte calate, che quando arrivano lì devono passargli
+davanti). Sotto non c'è più il numero di carte rimaste ma **quante mani restano**, che
+è la cosa che si vuole sapere guardando il mazzo.
 
 **Le proporzioni della carta cambiano col mazzo**: `--ar` vale 1.517 col mazzo napoletano
 e 1.733 con i due moderni. Ogni misura ricavata dall'altezza passa da `perAltezza()`, che
@@ -213,7 +247,10 @@ di resa su disegni piatti). Ogni carta è un `div` con `background-size: 1000% 4
 colonne = valori 1..10.
 
 Il tre e il quattro di denari sono ricostruiti a mano, perché gli originali avevano il
-numero di monete sbagliato.
+numero di monete sbagliato. L'asso di spade è stato rifatto da un'immagine data a parte:
+la cella si costruisce tenendo la cornice della carta vecchia e rimettendoci dentro il
+disegno, in scala col resto del seme, e poi il foglio si ricomprime a qualità 82, che è
+quella che riporta il JPEG al peso che aveva.
 
 Il dorso non è un'immagine: è fatto di gradienti CSS in `--dorso`, uno per tema, e lo
 riusano sia il mazzo sul tavolo sia le mini-carte in mano agli avversari.
@@ -235,9 +272,11 @@ termine in `vw` tiene conto dei margini della pagina e dei vuoti fra le carte, q
 `vh` di quello che sta sopra e sotto il feltro. Senza il secondo, su un telefono basso la
 pagina scrollava; senza il primo, le carte andavano a capo.
 
-Da quattro giocatori in su, e solo sopra i 740px di altezza, le carte calate stanno su più
-file: `--pcols` dice quante per riga e `--pw2` la misura corrispondente, che il CSS sceglie
-al posto di `--pw` dentro la media query. In sei si passa da una cinquantina di pixel al
+Da quattro giocatori in su, e solo con `html.alto` (cioè da 740px di altezza **utile**),
+le carte calate stanno su più file: `--pcols` dice quante per riga e `--pw2` la misura
+corrispondente, che il CSS sceglie al posto di `--pw`. Anche questa era una media query,
+e sbagliava per lo stesso motivo delle fasce: un Galaxy S8 è alto 740px esatti ma con la
+safe-area ne restano 692, e su due file le carte non ci stavano. In sei si passa da una cinquantina di pixel al
 doppio. Nella stessa situazione il blocco si sposta a sinistra (`.felt.folto`) per non
 finire sotto il mazzo.
 
@@ -248,8 +287,8 @@ i 620 restano solo titolo, campi e bottoni.
 **Gli scaglioni non sono media query.** `max-height` misura il viewport, non lo spazio in
 cui si disegna: la pagina ha `viewport-fit=cover`, quindi su un telefono con l'incavo la
 safe-area si prende fino a 93px che la media query non conta, e le fasce non scattavano
-mai. Le mette `misuraSchermo()` come classi sulla radice, `html.basso` e
-`html.minuscolo`, misurando l'altezza al netto degli incavi con una sonda — `env()` si
+mai. Le mette `misuraSchermo()` come classi sulla radice — `html.basso`, `html.minuscolo` e
+`html.alto` — misurando l'altezza al netto degli incavi con una sonda — `env()` si
 legge solo da un elemento, non da JS. Le soglie si guardano su quell'altezza e non su
 quella corrente: `html.basso` stringe anche il padding di `.wrap`, e guardando il valore
 corrente si oscillerebbe attorno alla soglia.
@@ -270,6 +309,11 @@ mentre toglierle sì — si prova nell'altro ordine solo perché su un telefono 
 due colonne accorciano i nomi. Quello che avanza se lo prende il QR, fino a 240px: più è
 grande, più da lontano si inquadra. Se tocchi la stanza, rimisura con `vista.js`, che
 prova 2, 4 e 6 posti su quattro telefoni con la loro safe-area.
+
+Le misure in altezza del tavolo non usano `vh` ma `--vhu`, che è un centesimo
+dell'altezza **utile** e lo scrive `misuraSchermo()`: con `viewport-fit=cover` un `vh`
+vero conta anche la safe-area, e su un telefono con l'incavo venivano fuori carte più
+grandi dello spazio che c'era davvero.
 
 Toccando questi valori, rimisurare: basta caricare `index.html` in un browser headless,
 piazzare uno stato finto e controllare che `scrollHeight` non superi `innerHeight` per
@@ -305,6 +349,14 @@ alle scope.
 
 `vibra()` segue il tasto del muto, perché quel tasto dice "silenzia", non "silenzia solo
 l'audio".
+
+Il suono di una carta non è un fruscio solo: `suonoCarta()` ne sovrappone tre — lo
+schiocco del bordo che si stacca (rumore brevissimo, passa-alto), il corpo che sbatte
+(più lungo, passa-banda) e il tonfo del panno sotto (un seno basso) — e li sballa un
+po' ogni volta, perché due carte identiche una dopo l'altra si sentono subito che sono
+finte. `soffio()` è il mattone: rumore filtrato con l'inviluppo dato da una potenza, e
+il filtro che può scorrere durante il suono, che è quello che distingue una carta che
+struscia da una che sbatte.
 
 A scopa le carte prese sparivano al ridisegno. `volaPrese()` le fa volare a chi
 le ha prese, e per sapere **da dove** partono fotografa il tavolo con

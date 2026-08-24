@@ -210,6 +210,69 @@ const attesa = ms => new Promise(r => setTimeout(r, ms));
     }
   }
 
+  /* Il tavolo e la fine mano, con gli incavi: sono le due schermate che
+     crescono col numero di giocatori. Lo stato se lo piazza a mano. */
+  const NOMI = ['Bartolomeo', 'Concetta', 'Gennaro', 'Assunta', 'Pasqualino', 'Rosaria'];
+  const posti = n => `Array.from({length:${n}},(_,i)=>({id:i?'x'+i:me.id,name:${JSON.stringify(NOMI)}[i]}))`;
+  const inGioco = (n, inTav, mazzo) => `
+    code='ABCD'; isHost=true; mySeat=0; connected=true;
+    const carte=[];for(let s=0;s<4;s++)for(let r=1;r<=10;r++)carte.push({s,r});
+    const mani={}; for(let i=0;i<${n};i++) mani[i]=carte.slice(i*3,i*3+3);
+    S={code:'ABCD',phase:'gioco',game:'briscola',teams:${n % 2 === 0},first:0,albo:{},mano:1,n:${n},
+       seats:${posti(n)},trump:{s:0,r:1},trumpSuit:0,hands:mani,deck:carte.slice(20,20+${mazzo}),
+       table:Array.from({length:${inTav}},(_,i)=>({seat:(i+1)%${n},c:carte[25+i*3]})),
+       turn:0,points:Array(${n % 2 === 0 ? 2 : n}).fill(0),tr:Array(${n}).fill(2),pp:Array(${n}).fill(11)};
+    misuraSchermo(); paint();`;
+  const aFine = (n, gioco, vinco) => `
+    code='ABCD'; isHost=true; mySeat=0; connected=true;
+    const carte=[];for(let s=0;s<4;s++)for(let r=1;r<=10;r++)carte.push({s,r});
+    const G=${n % 2 === 0 ? 2 : n};
+    S={code:'ABCD',phase:'fine',game:'${gioco}',teams:${n % 2 === 0},first:0,mano:3,n:${n},albo:{},
+       seats:${posti(n)},trump:{s:0,r:1},trumpSuit:0,hands:{},deck:[],table:[],turn:-1,
+       points:Array.from({length:G},(_,g)=>g===${vinco}?('${gioco}'==='scopa'?5:72):('${gioco}'==='scopa'?2:48)),
+       tr:Array.from({length:${n}},(_,i)=>3+i),pp:Array.from({length:${n}},(_,i)=>20+i*7),
+       taken:Array.from({length:${n}},()=>carte.slice(0,6)),scope:Array.from({length:${n}},(_,i)=>i%2),
+       esito:{vCarte:0,vDen:1,vPrim:0,sette:0,primT:[76,68]}};
+    misuraSchermo(); paint();`;
+
+  const conStato = async ([tel, w, h, alto, basso], codice, attesaMs) => {
+    const c = await contesto();
+    const p = await nuovaScheda(c, 'schermata');
+    await p.setViewportSize({ width: w, height: h });
+    await p.goto('http://localhost:8731/');
+    await p.waitForSelector('#crea', { timeout: 4000 });
+    await p.addStyleTag({
+      content: `.wrap{padding-top:${14 + alto}px !important;padding-bottom:${20 + basso}px !important}`
+        + `.sonda{padding-top:${alto}px !important;padding-bottom:${basso}px !important}`
+    });
+    await p.evaluate(s => window.eval(s), codice);
+    await attesa(attesaMs || 320);
+    const m = await p.evaluate(() => ({
+      vero: document.documentElement.scrollHeight, i: innerHeight,
+      cnt: (document.querySelector('.cnt') || {}).textContent || '',
+      titolo: (document.querySelector('.esitone') || {}).textContent || '',
+      coriandoli: document.querySelectorAll('.coriandolo').length
+    }));
+    pagine.splice(pagine.indexOf(p), 1);
+    await c.close();
+    return m;
+  };
+
+  for (const tel of TEL) {
+    for (const [n, inTav, mazzo] of [[2, 1, 14], [3, 2, 10], [4, 3, 8], [6, 5, 0]]) {
+      const m = await conStato(tel, inGioco(n, inTav, mazzo));
+      ok(m.vero <= m.i + 1, `tavolo in ${n} su ${tel[0]}: non scrolla (${m.vero} su ${m.i})`);
+      if (tel[0] === 'iPhone 14') ok(/man[io]$/.test(m.cnt), `in ${n} il mazzo dice le mani che restano ("${m.cnt}")`);
+    }
+  }
+  for (const [n, gioco, vinco, vinta] of [[2, 'briscola', 0, true], [4, 'briscola', 1, false], [6, 'scopa', 0, true]]) {
+    const m = await conStato(TEL[1], aFine(n, gioco, vinco), 900);
+    ok(m.vero <= m.i + 1, `fine ${gioco} in ${n}: la pagina sta ferma (${m.vero} su ${m.i})`);
+    ok(!!m.titolo, `fine ${gioco} in ${n}: dice com'è finita ("${m.titolo}")`);
+    ok(vinta ? m.coriandoli > 20 : m.coriandoli === 0,
+      `fine ${gioco} in ${n}: ${vinta ? 'i coriandoli ci sono (' + m.coriandoli + ')' : 'nessun coriandolo per chi perde'}`);
+  }
+
   // niente deve scrollare, a nessuna misura
   for (const [w, h] of [[320, 568], [390, 844], [430, 932], [768, 1024]]) {
     for (const q of [A, B]) await q.setViewportSize({ width: w, height: h });
