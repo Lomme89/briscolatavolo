@@ -277,6 +277,32 @@ const attesa = ms => new Promise(r => setTimeout(r, ms));
       }
     }
   }
+  /* Il mazzo piacentino è più lungo di quello napoletano: le stesse misure
+     costano più altezza, e il tavolo va ricontrollato con lui addosso. */
+  for (const tel of [TEL[0], TEL[1]]) {
+    const c = await contesto();
+    const p = await nuovaScheda(c, 'piacentine');
+    await p.setViewportSize({ width: tel[1], height: tel[2] });
+    await p.addInitScript(() => { try { localStorage.bt_tema = 'piacentine'; } catch (e) { } });
+    await p.goto('http://localhost:8731/');
+    await p.waitForSelector('#crea', { timeout: 4000 });
+    await p.addStyleTag({
+      content: `.wrap{padding-top:${14 + tel[3]}px !important;padding-bottom:${20 + tel[4]}px !important}`
+        + `.sonda{padding-top:${tel[3]}px !important;padding-bottom:${tel[4]}px !important}`
+    });
+    await p.evaluate(s => window.eval(s), inGioco(6, 5, 0));
+    await attesa(400);
+    await p.addStyleTag({ content: '*{animation:none !important;transition:none !important}' });
+    const m = await p.evaluate(() => ({
+      vero: document.documentElement.scrollHeight, i: innerHeight,
+      ar: getComputedStyle(document.documentElement).getPropertyValue('--ar').trim()
+    }));
+    ok(m.vero <= m.i + 1 && m.ar === '1.685',
+      `tavolo piacentino in 6 su ${tel[0]}: non scrolla (${m.vero} su ${m.i}, --ar ${m.ar})`);
+    pagine.splice(pagine.indexOf(p), 1);
+    await c.close();
+  }
+
   for (const [n, gioco, vinco, vinta] of [[2, 'briscola', 0, true], [4, 'briscola', 1, false], [6, 'scopa', 0, true]]) {
     const m = await conStato(TEL[1], aFine(n, gioco, vinco), 900);
     ok(m.vero <= m.i + 1, `fine ${gioco} in ${n}: la pagina sta ferma (${m.vero} su ${m.i})`);

@@ -14,6 +14,7 @@ manifest.json       manifest PWA
 sw.js               service worker, cache del guscio
 .nojekyll           impedisce a GitHub Pages di processare i file
 icone/              icona-192, icona-512, icona-maskable-512, apple-touch-icon
+foglio.py           rifà il foglio di un mazzo dalle quaranta carte sciolte
 harness.js          più client jsdom con un broker MQTT finto in-process
 test2.js            partite intere di briscola e scopa, da 2 a 4
 vista.js            le stesse cose in Chromium, per quello che jsdom non vede
@@ -207,9 +208,14 @@ volta per mano: la guardia è `festaFatta`, se no ogni messaggio di stato la rif
 
 ## Temi
 
-Ci sono tre temi, in `TEMI`: **classico** (napoletane, feltro verde, EB Garamond),
-**chiaro** e **scuro** (mazzi moderni disegnati piatti, palette neutra, carattere di
-sistema in grassetto stretto). Ognuno porta il suo mazzo, la sua palette e il suo
+Ci sono quattro temi, in `TEMI`: **classico** (napoletane) e **piacentine**, tutti e due
+sul feltro verde con EB Garamond e le cornici dorate, e **chiaro** e **scuro** (mazzi
+moderni disegnati piatti, palette neutra, carattere di sistema in grassetto stretto).
+I due tradizionali si distinguono per il mazzo, per le proporzioni della carta e per il
+dorso, rosso il napoletano e blu il piacentino: con lo stesso dorso non si capirebbe
+quale dei due è acceso guardando la pastiglia. `applicaTema` mette anche la classe
+`html.tradizionale`, che è la scorciatoia per «napoletane o piacentine» e regge la
+doratura delle cornici. Ognuno porta il suo mazzo, la sua palette e il suo
 carattere; il tema è una scelta **personale**, sta nel `localStorage` e non nello stato
 del tavolo, quindi allo stesso tavolo si può stare uno al chiaro e uno allo scuro.
 
@@ -237,26 +243,40 @@ dà da pescare** (`maniRimaste()`), che a mazzo finito diventa «mazzo finito».
 i giri che restano da giocare: quelli sono sempre questi più i tre che ognuno ha già in
 mano.
 
-**Le proporzioni della carta cambiano col mazzo**: `--ar` vale 1.517 col mazzo napoletano
-e 1.733 con i due moderni. Ogni misura ricavata dall'altezza passa da `perAltezza()`, che
-la riscala di `1.517/--ar`. Senza, col mazzo più lungo la pagina scrolla.
+**Le proporzioni della carta cambiano col mazzo**: `--ar` vale 1.655 col napoletano,
+1.685 col piacentino e 1.733 con i due moderni. Ogni misura ricavata dall'altezza passa
+da `perAltezza()`, che la riscala di `1.517/--ar`; e i minimi e i massimi dei `clamp`
+passano da `perLato()`, che fa la stessa cosa su una misura in larghezza — sono scelti
+sulla larghezza ma quello che pesa sul tavolo è l'altezza, e con un mazzo più lungo la
+stessa larghezza costa più spazio. Senza l'uno o l'altro, col mazzo più lungo la pagina
+scrolla.
 
 Si sceglie da due posti: le tre pastiglie tonde nella barra in fondo alla home, e la
 sezione «Aspetto» in fondo al pannello delle regole, per cambiarlo anche stando a tavolo.
 
 ## Carte
 
-Ogni mazzo è un unico foglio incorporato in base64 dentro `index.html`: JPEG quello
-napoletano, WebP i due moderni (200×347 per carta, qualità 72 — un terzo del JPEG a parità
-di resa su disegni piatti). Ogni carta è un `div` con `background-size: 1000% 400%` e
+Ogni mazzo è un unico foglio incorporato in base64 dentro `index.html`, tutti e quattro
+in WebP: napoletane 200×331 a qualità 76, piacentine 200×337 a qualità 72, i due moderni
+200×347 a qualità 72. Ogni carta è un `div` con `background-size: 1000% 400%` e
 `background-position` calcolata da seme e valore. Righe = semi nell'ordine `SUITS`,
 colonne = valori 1..10.
 
-Il tre e il quattro di denari sono ricostruiti a mano, perché gli originali avevano il
-numero di monete sbagliato. L'asso di spade è stato rifatto da un'immagine data a parte:
-la cella si costruisce tenendo la cornice della carta vecchia e rimettendoci dentro il
-disegno, in scala col resto del seme, e poi il foglio si ricomprime a qualità 82, che è
-quella che riporta il JPEG al peso che aveva.
+I fogli si rifanno con `foglio.py` (serve `pip install pillow`), che prende una cartella
+di quaranta carte, le compone sulla griglia, appoggia su bianco gli angoli trasparenti —
+le piacentine ce li hanno, e in WebP diventerebbero neri — e stampa la data URI da
+incollare:
+
+```
+python3 foglio.py cartella-delle-carte --larghezza 200 --qualita 76
+```
+
+La misura della cella è 200px di larghezza per tutti: più grande non si vede la
+differenza a schermo e il file raddoppia. Lo script dice anche quanto viene `--ar`.
+
+Il mazzo napoletano è stato rifatto da capo da una serie di carte corrette: il vecchio
+foglio aveva il tre e il quattro di denari col numero di monete sbagliato e l'asso di
+spade capovolto.
 
 Il dorso non è un'immagine: è fatto di gradienti CSS in `--dorso`, uno per tema, e lo
 riusano sia il mazzo sul tavolo sia le mini-carte in mano agli avversari.
