@@ -85,6 +85,7 @@ avvio. Icone e manifest, che cambiano di rado, restano cache-first.
 | `finePartita()` | la mano finita: conti a schermo intero, e la festa |
 | `festeggia()` / `coriandoli()` | gli effetti per chi vince |
 | `suonoCarta()` | schiocco, corpo e panno: una carta che si posa |
+| `conn()` / `capo()` | la barra in cima: come va la rete, e a che gioco si sta |
 | `misuraSchermo()` | le fasce di altezza, al netto degli incavi |
 | `spazioQR()` / `misuraHome()` | quanto cede il QR, quanto cede il ventaglio |
 
@@ -108,8 +109,12 @@ const GIOCHI={
 ```
 
 `vista` dice quale delle due viste di gioco disegna il tavolo, `posti` in quanti si
-può giocare (la home spegne gli altri numeri con `nega()`, non con `disabled`),
-`sempreSquadre` che le squadre non sono una scelta. Non guardare mai `S.game`
+può giocare, `sempreSquadre` che le squadre non sono una scelta. Nella stanza il
+gioco si sceglie da una **tendina**, non da una fila di bottoni: sei giochi facevano
+due righe e ogni gioco in più ne avrebbe aggiunta una, e quello spazio è quello che
+poi manca al QR. Le opzioni non si disabilitano mai — dentro c'è scritto in quanti si
+gioca (`postiBrevi()`, «Briscola · 2-6») e sceglierne una che coi presenti non si fa
+risponde subito con `avvisa()`, oltre a spegnere il bottone del via. Non guardare mai `S.game`
 direttamente per sapere quale vista o quanti posti: passa da `gioco(st)`,
 `vistaDi(st)` e `siGiocaIn(g,k)`.
 
@@ -190,6 +195,26 @@ l'ha fatta**: prima si scriveva «Link copiato» comunque, anche fuori da https
 dove non c'era niente da copiare. Dove esiste la condivisione di sistema
 (`siCondivide()`, cioè `navigator.share` su schermo tattile) il link si manda
 invece di copiarlo, perché è quello che si fa davvero al tavolo.
+
+**In cima si scrive solo quello che serve.** Tre cose se ne sono andate dalla
+testa del tavolo, e tutte e tre per lo stesso motivo: c'erano sempre, quindi non
+dicevano niente. `conn()` scriveva «In linea» per tutta la partita e adesso lascia
+solo il pallino, con le parole che tornano quando c'è da ricollegare o quando il
+mazziere non risponde. `capo()` scriveva il seme di briscola mentre la carta vera
+stava sul feltro grande una volta e mezza il dorso: ora le due cose si danno il
+cambio, la scritta esce solo a mazzo finito, quando la briscola ce l'ha qualcuno in
+mano — e alla chiamata, dove la carta chiamata resta sul feltro fino in fondo, non
+esce mai. A tressette non c'è briscola e si scrive il gioco, che è l'unico posto che
+distingue il tressette da quello a perdere.
+
+E le pastiglie dei giocatori **hanno la cornice solo quando tocca a loro**: erano
+incorniciate tutte uguali, e quella di chi doveva giocare si distingueva per un filo
+d'oro che non si vedeva. Adesso gli altri sono nomi appoggiati sul feltro, la cornice
+vuol dire una cosa sola, e la fascia in cima pesa la metà. A briscola è sparito anche
+il numero delle prese, che uno ha dovuto chiedere che cosa fosse: una presa può
+valere trenta punti o zero, quindi contarle non dice niente su chi sta vincendo.
+Resta nel pannello dei conti, sotto «Prese». A scopa invece le carte prese sono un
+punto vero, e quel numero rimane.
 
 L'uscita del mazziere chiede conferma a due tocchi: non esce e basta, pubblica
 il retained vuoto e **smonta il tavolo di tutti**.
@@ -428,8 +453,7 @@ sovrascrivere dall'alto.
 e il totale cambia col telefono. `stanza()` disegna a QR ancora vuoto, chiede a
 `spazioQR()` quanto resta, e se non basta toglie qualcosa e rimisura: prima le due righe
 di spiegazione (`.senzanote`), poi i posti su due colonne (`.stretta`), e in ultimo
-il QR se ancora non basta — coi sei bottoni dei giochi la scelta del numero di posti
-è cresciuta di una riga, e su un iPhone SE la stanza in sei sforava di quaranta pixel. Alla fine riprova
+il QR se ancora non basta. Alla fine riprova
 a rimettere le spiegazioni, perché mettere i posti su due colonne non toglie niente
 mentre toglierle sì — si prova nell'altro ordine solo perché su un telefono stretto le
 due colonne accorciano i nomi. Quello che avanza se lo prende il QR, fino a 240px: più è

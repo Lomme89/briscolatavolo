@@ -272,8 +272,11 @@ input[type=text]:focus{outline:2px solid var(--oro);outline-offset:1px}
 .temi .t-piacentine{background:linear-gradient(135deg,#1C4034 50%,#2C5C86 50%)}
 .temi .t-chiaro{background:linear-gradient(135deg,#E9E4DA 50%,#1F4E8C 50%)}
 .temi .t-scuro{background:linear-gradient(135deg,#141922 50%,#E0A526 50%)}
-.brisc{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;
-  background:var(--su-alto);box-shadow:var(--su-alto-om);border:1px solid var(--bordo);letter-spacing:.06em}
+/* Non è più una pastiglia: sta a sinistra accanto al pallino, ed è stato
+   della mano come lo è quello, non un comando. Una cornice in meno in cima. */
+.brisc{display:inline-flex;align-items:center;gap:5px;letter-spacing:.06em;
+  min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.brisc b{font-weight:600}
 
 /* ---- stanza ---- */
 .roomcode{font-family:var(--display);font-weight:var(--display-w);font-size:clamp(42px,15vw,58px);
@@ -299,7 +302,30 @@ input[type=text]:focus{outline:2px solid var(--oro);outline-offset:1px}
 .wrap.senzanote .lede,.wrap.senzanote .chiusa{display:none}
 /* Sei giochi sono tre righe di bottoni: quando lo spazio manca ne stanno
    tre per riga invece di due, e diventano due righe. */
-.wrap.stretta #gm button{flex:1 1 28%;padding:8px 0;font-size:13px}
+/* Sei giochi in fila facevano due righe di bottoni, e ogni gioco in più ne
+   avrebbe aggiunta un'altra: qui lo spazio è quello che poi manca al QR.
+   Una tendina costa una riga sola e non cresce. Il numero di posti è scritto
+   dentro all'opzione, così la riga chiusa dice già in quanti si gioca senza
+   una seconda riga che lo spieghi. */
+.impostazioni{display:flex;gap:8px;margin-top:12px}
+/* Il gioco si prende più spazio delle squadre: «Briscola · 2-6» è più lungo
+   di «A squadre», e sul telefono più stretto la riga chiusa è l'unico posto
+   dove è scritto in quanti si gioca — lì le due spiegazioni sono già cadute. */
+.scelta{position:relative;flex:1 1 0;min-width:0;display:block}
+.scelta.gioco{flex:1.35 1 0}
+.scelta::after{content:"";position:absolute;right:13px;top:50%;width:7px;height:7px;
+  border-right:2px solid var(--dim);border-bottom:2px solid var(--dim);border-radius:1px;
+  transform:translateY(-70%) rotate(45deg);pointer-events:none}
+.scelta select{appearance:none;-webkit-appearance:none;width:100%;display:block;
+  padding:12px 32px 12px 14px;border-radius:12px;color-scheme:dark;
+  background:var(--su-alto);box-shadow:var(--su-alto-om);border:1px solid var(--bordo);
+  color:var(--testo);font:inherit;font-size:15px;font-weight:600;line-height:1.2;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+html[data-tema=chiaro] .scelta select{color-scheme:light}
+.scelta select:focus-visible{outline:2px solid var(--oro);outline-offset:2px}
+.scelta:active select{transform:scale(.985)}
+.wrap.stretta .scelta select{padding:9px 24px 9px 9px;font-size:14px}
+.wrap.stretta .scelta::after{right:10px}
 .wrap.stretta .seatlist{grid-template-columns:1fr 1fr;gap:6px}
 .wrap.stretta .seatlist li{padding:8px 10px;font-size:14px}
 .wrap.stretta .seatlist li.empty{grid-column:1 / -1}
@@ -314,15 +340,22 @@ input[type=text]:focus{outline:2px solid var(--oro);outline-offset:1px}
 
 /* ---- giocatori ---- */
 .opps{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:8px}
-.opp{display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:var(--su-alto);
-  box-shadow:var(--su-alto-om);border:1px solid transparent;font-size:13px;transition:border-color .25s,box-shadow .25s}
+/* Sei pastiglie tutte incorniciate uguali: quella di chi doveva giocare si
+   distingueva per un filo d'oro e non la vedeva nessuno. Adesso la cornice
+   ce l'ha solo lui, e gli altri sono nomi appoggiati sul feltro — così la
+   cornice vuol dire una cosa invece di essere decorazione, e la fascia dei
+   giocatori pesa la metà. */
+.opp{display:flex;align-items:center;gap:6px;padding:5px 8px;border-radius:999px;
+  border:1px solid transparent;font-size:13px;
+  transition:background .25s,border-color .25s,box-shadow .25s}
 .opp.via{opacity:.45;filter:saturate(.5)}
 .opp.via .att{animation:none;background:var(--dim)}
 .attesa-posto{margin:14px 0 0;padding:13px;border-radius:12px;background:var(--su-basso);
   box-shadow:var(--su-basso-om);border:1px solid var(--bordo);
   text-align:center;font-size:14.5px;line-height:1.5;color:var(--testo)}
 .attesa-posto b{color:var(--oro);font-weight:600}
-.opp.turn{border-color:var(--oro);box-shadow:var(--su-alto-om),0 0 0 3px rgba(var(--acc-rgb),.18)}
+.opp.turn{border-color:var(--oro);background:var(--su-alto);
+  box-shadow:var(--su-alto-om),0 0 0 3px rgba(var(--acc-rgb),.18)}
 .opp .att{display:none}
 .opp.turn .att{display:block;width:6px;height:6px;border-radius:50%;background:var(--oro);
   animation:blink 1.1s infinite;flex:none}
@@ -666,7 +699,7 @@ button.roomcode{width:100%;border:0;background:none;padding:0 0 0 .22em}
   100%{opacity:0;transform:scale(1.06) rotate(-7deg)}}
 /* La pastiglia di chi incassa: le carte le arrivano addosso e restava ferma. */
 .opp.incassa{animation:incassa .5s cubic-bezier(.3,1.5,.4,1)}
-@keyframes incassa{40%{transform:scale(1.12);border-color:var(--oro);
+@keyframes incassa{40%{transform:scale(1.12);border-color:var(--oro);background:var(--su-alto);
   box-shadow:var(--su-alto-om),0 0 0 4px rgba(var(--acc-rgb),.3)}}
 /* Chi aspetta il prossimo giro lo sapeva solo lui: al tavolo non lo vedeva nessuno. */
 .coda{margin:-2px 0 8px;text-align:center;font-size:12px;color:var(--dim)}
@@ -679,7 +712,7 @@ button.roomcode{width:100%;border:0;background:none;padding:0 0 0 .22em}
    al bordo, che è quello che fa leggere una cornice come dorata invece che
    come una riga colorata. I due temi moderni non ce l'hanno: lì il bordo è
    un bordo. `.tradizionale` è la scorciatoia per «napoletane o piacentine». */
-.tradizionale :is(.panel,.seatlist li,.sc,.attesa-posto,.turnbar,.rank,.brisc,
+.tradizionale :is(.panel,.seatlist li,.sc,.attesa-posto,.turnbar,.rank,
   #toast .msg,.sheet .inner){box-shadow:inset 0 0 0 1px rgba(var(--acc-rgb),.16),var(--su-alto-om)}
 .tradizionale :is(.panel,.attesa-posto){
   box-shadow:inset 0 0 0 1px rgba(var(--acc-rgb),.16),var(--su-basso-om)}
@@ -824,6 +857,10 @@ const GIOCHI={
 const gioco=st=>GIOCHI[(st||S||{}).game]||GIOCHI.briscola;
 const vistaDi=st=>gioco(st).vista;
 const siGiocaIn=(g,k)=>GIOCHI[g].posti.indexOf(k)>=0;
+/* «in 2-6» e non «in due, tre, quattro, cinque o sei»: nella tendina la riga
+   è una sola e i numeri si leggono meglio da soli che scritti in lettere. */
+const postiBrevi=g=>{ const p=GIOCHI[g].posti, ult=p[p.length-1];
+  return p.length===1?''+p[0]:ult-p[0]===p.length-1?p[0]+'-'+ult:p.join('/'); };
 /* Quante carte si hanno in mano all'inizio: tre a briscola e a scopa, otto
    alla chiamata (quaranta in cinque), dieci a tressette e a scopone. */
 const manoIniziale=st=>st.game==='chiamata'?8
@@ -1818,9 +1855,29 @@ const temiSezione=()=>`<h3>Aspetto</h3>
    ri-applicava il tema: suono, vibrazione e ridisegno di tutto a ogni tocco. */
 function legaTemi(){ document.querySelectorAll('button[data-tema]').forEach(b=>
   b.onclick=()=>applicaTema(b.dataset.tema,true)); }
+/* «In linea» era scritto per esteso sempre, cioè quasi sempre per dire che
+   non c'era niente da dire, e si prendeva mezza barra in cima. Quando va
+   tutto bene resta il pallino e basta; le parole tornano solo quando c'è
+   qualcosa di storto, che è l'unico momento in cui servono. */
 const conn=()=>mazzierePerso()
   ? `<span class="dot"></span><span>Il mazziere non risponde</span>`
-  : `<span class="dot ${connected?'on':''}"></span><span>${connected?'In linea':'Ricollego…'}</span>`;
+  : connected
+    ? `<span class="dot on" role="img" aria-label="In linea"></span>`
+    : `<span class="dot"></span><span>Ricollego…</span>`;
+/* Il seme di briscola stava scritto in cima per tutta la mano, mentre la
+   carta vera stava sul feltro grande una volta e mezza il dorso: la stessa
+   cosa detta due volte, e una delle due era una pastiglia in più. Adesso la
+   scritta esce solo quando la carta non c'è più — a mazzo finito la briscola
+   ce l'ha qualcuno in mano — e le due cose si danno il cambio invece di
+   convivere. Alla chiamata la carta chiamata resta sul feltro dall'inizio
+   alla fine, quindi lì non serve mai. A tressette non c'è briscola e si
+   scrive il gioco: è l'unico posto che distingue il tressette da quello a
+   perdere, che è una differenza grossa da dimenticare. */
+const capo=()=>{
+  if(daColore(S)) return `<span class="brisc">${gioco(S).nome}</span>`;
+  if(S.game==='chiamata'||S.deck.length||S.trumpSuit==null) return '';
+  return `<span class="brisc">Briscola <b class="seme s${S.trumpSuit}">${SUITS[S.trumpSuit].nome}</b></span>`;
+};
 const mutoBtn=()=>`<button id="mu" title="${muto?'Riattiva i suoni':'Silenzia'}" aria-label="${
   muto?'Riattiva i suoni':'Silenzia'}">${muto?ICO.audioNo:ICO.audioSi}</button>`;
 function legaMuto(){ const b=$('mu'); if(b) b.onclick=()=>{
@@ -1985,12 +2042,14 @@ function stanza(){
   <ul class="seatlist">${S.seats.map((s,i)=>`<li class="${s.id===me.id?'me':''}${nuoviPosti[i]?' nuovo':''}"><span class="n">${i+1}</span><span class="nome">${s.name}${s.id===me.id?' · tu':''}</span>${S.albo&&S.albo[s.id]?`<span class="team albo">${S.albo[s.id]} man${S.albo[s.id]>1?'i':'o'} vint${S.albo[s.id]>1?'e':'a'}</span>`:(sq?`<span class="team"><span class="pre">Squadra </span>${i%2?'B':'A'}</span>`:'')}</li>`).join('')
     +(liberi>0?`<li class="empty"><span class="n">+</span>${liberi} post${liberi>1?'i':'o'} liber${liberi>1?'i':'o'}</li>`:'')}</ul>
   ${isHost?`
-    <div class="seg" style="margin-top:12px" id="gm">${Object.keys(GIOCHI).map(g=>
-      `<button data-v="${g}" aria-pressed="${S.game===g}"${
-        siGiocaIn(g,k)?'':' class="spento"'} title="Si gioca in ${elenco(GIOCHI[g].posti)}">${GIOCHI[g].nome}</button>`).join('')}</div>
-    ${(k===4||k===6)&&!gi.sempreSquadre&&S.game!=='chiamata'?`<div class="seg" style="margin-top:8px" id="sq">
-      <button data-v="1" aria-pressed="${S.teams?'true':'false'}">A squadre</button>
-      <button data-v="0" aria-pressed="${S.teams?'false':'true'}">Ognuno per sé</button></div>`:''}
+    <div class="impostazioni">
+      <label class="scelta gioco"><select id="gm" aria-label="Che gioco">${Object.keys(GIOCHI).map(g=>
+        `<option value="${g}"${S.game===g?' selected':''}>${GIOCHI[g].nome} · ${postiBrevi(g)}</option>`).join('')}</select></label>
+      ${(k===4||k===6)&&!gi.sempreSquadre&&S.game!=='chiamata'?`
+      <label class="scelta"><select id="sq" aria-label="Come ci si divide">
+        <option value="1"${S.teams?' selected':''}>A squadre</option>
+        <option value="0"${S.teams?'':' selected'}>Ognuno per sé</option></select></label>`:''}
+    </div>
     <button class="btn${noVia?' spento':''}" id="via" ${noVia?'aria-disabled="true"':''}>${
       k<2?'Serve almeno un altro giocatore':
       !siGiocaIn(S.game,k)?gi.nome+' non si gioca in '+k:
@@ -2009,8 +2068,13 @@ function stanza(){
   if($('via'))$('via').onclick=()=>{
     if(noVia) return nega($('via'),noVia);
     vibra(16); send({t:'start'}); };
-  if($('sq'))document.querySelectorAll('#sq button').forEach(b=>b.onclick=()=>send({t:'squadre',v:+b.dataset.v}));
-  if($('gm'))document.querySelectorAll('#gm button').forEach(b=>b.onclick=()=>send({t:'gioco',v:b.dataset.v}));
+  if($('sq'))$('sq').onchange=e=>{ vibra(10); send({t:'squadre',v:+e.target.value}); };
+  /* La tendina si può portare su un gioco che in tanti così non si fa: il
+     bottone del via lo spiegherebbe comunque, ma solo a chi ci prova. Meglio
+     dirlo subito, che è la regola di tutto il resto dell'app. */
+  if($('gm'))$('gm').onchange=e=>{ const v=e.target.value; vibra(10);
+    if(!siGiocaIn(v,k)) avvisa(GIOCHI[v].nome+' si gioca in '+elenco(GIOCHI[v].posti)+', e siete in '+k,{ko:true});
+    send({t:'gioco',v}); };
   if($('link'))$('link').onclick=mandaInvito;
   /* Si misura, e se il QR non ci sta si toglie qualcosa e si rimisura: prima
      le due righe di spiegazione, che a quel punto sono già state lette, poi i
@@ -2101,15 +2165,17 @@ function tavolo(){
 
   const eti=g=>nomeGruppo(g,gm);
   $('app').innerHTML=`
-  <div class="topbar">${conn()}<span class="sp"></span>
-    <span class="brisc">${daColore(S)?gioco(S).nome
-      :`Briscola <b class="seme s${S.trumpSuit}">${SUITS[S.trumpSuit].nome}</b>`}</span>
+  <div class="topbar">${conn()}${capo()}<span class="sp"></span>
     ${mutoBtn()}<button id="cl" title="Punteggi" aria-label="Punteggi">${ICO.punti}</button><button id="rg" title="Regole" aria-label="Regole">${ICO.aiuto}</button><button id="x" title="Esci dal tavolo" aria-label="Esci dal tavolo">${ICO.esci}</button></div>
   <div class="opps">${opps.map(i=>`<span class="opp ${turn===i?'turn':''}${seatVia(i)?' via':''}" data-seat="${i}"${
     seatVia(i)?' title="non risponde"':''}>
     <span class="att" aria-hidden="true"></span>
     <span>${nomeDi(i)}${conMe(i,gm)}</span>
-    ${S.tr&&S.tr[i]?`<b>${S.tr[i]}</b>`:''}
+    ${/* Quante prese ha fatto stava qui, e uno ha dovuto chiedere che numero
+          fosse: a briscola una presa può valere trenta punti o zero, quindi
+          contarle non dice niente su chi sta vincendo — quello lo dicono i
+          punteggi qui sotto. Resta nel pannello dei conti, sotto «Prese».
+          A scopa invece le carte prese sono un punto vero e restano. */''}
     ${(()=>{const k=((S.hands&&S.hands[i])||[]).length;
       /* Dieci dorsi in fila allargano la pastiglia su tre righe: da sei in su
          se ne disegna uno solo e accanto ci si scrive quante sono. */
@@ -2299,8 +2365,7 @@ function tavoloAsta(){
   else barra=`<p class="turnbar"><span class="spin"></span>${fuori?'Sei fuori. ':''}Sta pensando <b>${nomeDi(A.turn)}</b></p>`;
 
   $('app').innerHTML=`
-  <div class="topbar">${conn()}<span class="sp"></span>
-    <span class="brisc">Asta</span>
+  <div class="topbar">${conn()}<span class="brisc">Asta</span><span class="sp"></span>
     ${mutoBtn()}<button id="rg" title="Regole" aria-label="Regole">${ICO.aiuto}</button><button id="x" title="Esci dal tavolo" aria-label="Esci dal tavolo">${ICO.esci}</button></div>
   <div class="opps">${opps.map(i=>`<span class="opp ${A.turn===i&&!A.vinta?'turn':''}${
     (A.fuori||[]).indexOf(i)>=0?' via':''}" data-seat="${i}">
@@ -2391,8 +2456,7 @@ function tavoloScopa(){
   const primaBoard=(nuovaMossa&&S.mossa.presi&&!RM)?fotoBoard():null;
 
   $('app').innerHTML=`
-  <div class="topbar">${conn()}<span class="sp"></span>
-    <span class="brisc">Scopa</span>
+  <div class="topbar">${conn()}<span class="brisc">${gioco(S).nome}</span><span class="sp"></span>
     ${mutoBtn()}<button id="cl" title="Punteggi" aria-label="Punteggi">${ICO.punti}</button><button id="rg" title="Regole" aria-label="Regole">${ICO.aiuto}</button><button id="x" title="Esci dal tavolo" aria-label="Esci dal tavolo">${ICO.esci}</button></div>
   <div class="opps">${opps.map(i=>`<span class="opp ${turn===i?'turn':''}${seatVia(i)?' via':''}" data-seat="${i}"${
     seatVia(i)?' title="non risponde"':''}>

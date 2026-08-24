@@ -128,7 +128,7 @@ const attesa = ms => new Promise(r => setTimeout(r, ms));
   ok(await A.isVisible('.roomcode'), 'e dopo un po\' si disarma da solo');
 
   // si gioca a scopa
-  await A.click('#gm button[data-v=scopa]'); await attesa(300);
+  await A.selectOption('#gm', 'scopa'); await attesa(300);
   await A.click('#via');
   await A.waitForSelector('.board .bc', { timeout: 5000 });
   ok(true, 'la scopa parte');
@@ -150,14 +150,19 @@ const attesa = ms => new Promise(r => setTimeout(r, ms));
      safe-area si simula col padding, che in headless vale zero. */
   const TEL = [['iPhone SE 1', 320, 568, 0, 0], ['iPhone 14', 390, 844, 47, 34],
                ['iPhone 15 ProMax', 430, 932, 59, 34], ['Galaxy S8', 360, 740, 24, 24]];
-  const finge = n => `
+  const finge = (n, g) => `
     code='ABCD'; isHost=true; mySeat=0; connected=true;
-    S={code:'ABCD',phase:'attesa',game:'briscola',teams:true,first:0,albo:{},mano:0,
+    S={code:'ABCD',phase:'attesa',game:'${g || 'briscola'}',teams:true,first:0,albo:{},mano:0,
        seats:Array.from({length:${n}},(_,i)=>({id:i?'x'+i:me.id,
          name:['Bartolomeo','Concetta','Gennaro','Assunta','Pasqualino','Rosaria'][i]}))};
     paint();`;
+  /* Scopa e a perdere sono le due righe più lunghe della tendina: «Scopa ·
+     2/3/4/6» accanto alle squadre, e «A perdere · 2/4» che si prende tutta la
+     riga perché a perdere le squadre non si scelgono. */
   for (const [tel, w, h, alto, basso] of TEL) {
-    for (const n of [2, 4, 6]) {
+    for (const n of [2, 4, 6, 'scopa', 'treperdere']) {
+      const g = typeof n === 'string' ? n : null;
+      const k = g ? 4 : n;
       const c = await contesto();
       const p = await nuovaScheda(c, 'stanza');
       await p.setViewportSize({ width: w, height: h });
@@ -167,16 +172,23 @@ const attesa = ms => new Promise(r => setTimeout(r, ms));
         content: `.wrap{padding-top:${14 + alto}px !important;padding-bottom:${20 + basso}px !important}`
           + `.sonda{padding-top:${alto}px !important;padding-bottom:${basso}px !important}`
       });
-      await p.evaluate(s => window.eval(s), finge(n));
+      await p.evaluate(s => window.eval(s), finge(k, g));
       await attesa(300);
       const m = await p.evaluate(() => {
         const wr = document.querySelector('.wrap');
         const prima = wr.style.minHeight; wr.style.minHeight = '0';
         const nat = Math.ceil(wr.getBoundingClientRect().height);
         wr.style.minHeight = prima;
-        return { nat, i: innerHeight };
+        return {
+          nat, i: innerHeight,
+          tagliate: [...document.querySelectorAll('.scelta select')]
+            .filter(s => s.scrollWidth > s.clientWidth + 1)
+            .map(s => s.options[s.selectedIndex].text)
+        };
       });
-      ok(m.nat <= m.i, `stanza in ${n} su ${tel}: ci sta senza scrollare (${m.nat} su ${m.i})`);
+      const che = g ? `a ${g} in 4` : `in ${n}`;
+      ok(m.nat <= m.i, `stanza ${che} su ${tel}: ci sta senza scrollare (${m.nat} su ${m.i})`);
+      ok(!m.tagliate.length, `stanza ${che} su ${tel}: la tendina non taglia "${m.tagliate.join('", "')}"`);
       pagine.splice(pagine.indexOf(p), 1);
       await c.close();
     }
@@ -214,14 +226,15 @@ const attesa = ms => new Promise(r => setTimeout(r, ms));
      crescono col numero di giocatori. Lo stato se lo piazza a mano. */
   const NOMI = ['Bartolomeo', 'Concetta', 'Gennaro', 'Assunta', 'Pasqualino', 'Rosaria'];
   const posti = n => `Array.from({length:${n}},(_,i)=>({id:i?'x'+i:me.id,name:${JSON.stringify(NOMI)}[i]}))`;
-  const inGioco = (n, inTav, mazzo) => `
+  const inGioco = (n, inTav, mazzo, tocca) => `
     code='ABCD'; isHost=true; mySeat=0; connected=true;
     const carte=[];for(let s=0;s<4;s++)for(let r=1;r<=10;r++)carte.push({s,r});
     const mani={}; for(let i=0;i<${n};i++) mani[i]=carte.slice(i*3,i*3+3);
     S={code:'ABCD',phase:'gioco',game:'briscola',teams:${n % 2 === 0},first:0,albo:{},mano:1,n:${n},
        seats:${posti(n)},trump:{s:0,r:1},trumpSuit:0,hands:mani,deck:carte.slice(20,20+${mazzo}),
        table:Array.from({length:${inTav}},(_,i)=>({seat:(i+1)%${n},c:carte[25+i*3]})),
-       turn:0,points:Array(${n % 2 === 0 ? 2 : n}).fill(0),tr:Array(${n}).fill(2),pp:Array(${n}).fill(11)};
+       turn:${tocca === undefined ? 0 : tocca},points:Array(${n % 2 === 0 ? 2 : n}).fill(0),
+       tr:Array(${n}).fill(2),pp:Array(${n}).fill(11)};
     misuraSchermo(); paint();`;
   const aFine = (n, gioco, vinco) => `
     code='ABCD'; isHost=true; mySeat=0; connected=true;
@@ -257,7 +270,20 @@ const attesa = ms => new Promise(r => setTimeout(r, ms));
       briscolaLi: !!document.querySelector('.trumpslot'),
       file: document.querySelectorAll('.hand').length,
       titolo: (document.querySelector('.esitone') || {}).textContent || '',
-      coriandoli: document.querySelectorAll('.coriandolo').length
+      coriandoli: document.querySelectorAll('.coriandolo').length,
+      /* La barra in cima: il pallino da solo quando fila tutto, e il seme di
+         briscola scritto solo quando la carta non sta più sul feltro. */
+      inLinea: (document.querySelector('.topbar') || {}).textContent || '',
+      capo: (document.querySelector('.brisc') || {}).textContent || '',
+      /* La cornice ce l'ha solo chi deve giocare, se no non vuol dire niente. */
+      incorniciati: document.querySelectorAll('.opp').length
+        && [...document.querySelectorAll('.opp')].filter(o =>
+             getComputedStyle(o).borderTopColor !== 'rgba(0, 0, 0, 0)').length,
+      diTurno: document.querySelectorAll('.opp.turn').length,
+      /* Le tendine della stanza: quello che c'è scritto ci deve stare. */
+      tagliate: [...document.querySelectorAll('.scelta select')]
+        .filter(s => s.scrollWidth > s.clientWidth + 1)
+        .map(s => s.options[s.selectedIndex].text)
     }));
     pagine.splice(pagine.indexOf(p), 1);
     await c.close();
@@ -275,6 +301,18 @@ const attesa = ms => new Promise(r => setTimeout(r, ms));
         /* A mazzo finito la briscola se l'è pescata qualcuno: non può restare lì. */
         ok(m.briscolaLi === (mazzo > 0),
           mazzo ? `in ${n} la briscola è ancora nel mazzo` : `in ${n} a mazzo finito la briscola non resta sul tavolo`);
+        /* «In linea» spariva dalla barra: quando va tutto bene resta il pallino. */
+        ok(!/In linea/.test(m.inLinea), `in ${n} la barra non scrive «In linea» quando fila tutto`);
+        /* Il seme scritto e la carta sul feltro non stanno insieme: si danno il cambio. */
+        ok(mazzo ? m.capo === '' : /Denari|Coppe|Spade|Bastoni/.test(m.capo),
+          mazzo ? `in ${n} col mazzo vivo il seme non è scritto due volte`
+                : `in ${n} a mazzo finito il seme resta scritto in cima`);
+        /* Con la palla a un altro: una cornice sola, la sua. Il caso da
+           controllare è questo — a turno mio non ne è accesa nessuna, e la
+           prova passerebbe anche se le pastiglie fossero incorniciate tutte. */
+        const alt = await conStato(tel, inGioco(n, inTav, mazzo, 1));
+        ok(alt.diTurno === 1 && alt.incorniciati === 1,
+          `in ${n} la cornice ce l'ha solo chi deve giocare (${alt.incorniciati} accese, ${alt.diTurno} di turno)`);
       }
     }
   }

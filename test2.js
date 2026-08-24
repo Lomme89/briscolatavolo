@@ -29,7 +29,8 @@ async function partita(gioco, n, errori) {
   await finoA(() => (stato(cl[0]) || {}).seats && stato(cl[0]).seats.length === n, 9000, n + ' seduti');
 
   if (gioco !== 'briscola') {
-    $$(cl[0], '#gm button').find(x => x.dataset.v === gioco).click();
+    const gm = $(cl[0], '#gm');
+    gm.value = gioco; gm.onchange({ target: gm });
     await finoA(() => (stato(cl[0]) || {}).game === gioco, 4000, 'gioco ' + gioco);
   }
 
