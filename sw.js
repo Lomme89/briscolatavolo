@@ -1,5 +1,5 @@
 /* Briscola al tavolo — service worker */
-const V = 'briscola-v1';
+const V = 'briscola-v2';
 const SHELL = ['./', './index.html', './manifest.webmanifest',
   './icone/icona-192.png', './icone/icona-512.png', './icone/apple-touch-icon.png'];
 
@@ -19,7 +19,20 @@ self.addEventListener('fetch', e => {
   if (url.protocol.startsWith('ws')) return;
 
   if (url.origin === location.origin) {
-    // il guscio dell'app: prima la cache, poi la rete, e intanto si aggiorna
+    // La pagina È l'app: sta tutta in index.html e cambia a ogni modifica.
+    // Servirla prima dalla cache voleva dire far vedere la versione vecchia e
+    // accorgersi della nuova solo al secondo avvio. Prima la rete, la cache
+    // come rete di sicurezza per quando il telefono è offline.
+    const guscio = r.mode === 'navigate'
+      || url.pathname.endsWith('/') || url.pathname.endsWith('index.html');
+    if (guscio) {
+      e.respondWith(fetch(r).then(res => {
+        if (res && res.ok) { const cp = res.clone(); caches.open(V).then(c => c.put(r, cp)); }
+        return res;
+      }).catch(() => caches.match(r).then(hit => hit || caches.match('./'))));
+      return;
+    }
+    // icone e manifest cambiano di rado: prima la cache, e intanto si aggiorna
     e.respondWith(caches.match(r).then(hit => {
       const rete = fetch(r).then(res => {
         if (res && res.ok) caches.open(V).then(c => c.put(r, res.clone()));

@@ -164,7 +164,8 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
 .hero span:nth-child(1){--r:-13deg;--y:5px;animation-delay:.04s}
 .hero span:nth-child(2){--r:0deg;--y:-7px;animation-delay:.14s;z-index:2}
 .hero span:nth-child(3){--r:13deg;--y:5px;animation-delay:.24s}
-.hero .card{--cw:60px;box-shadow:0 10px 24px rgba(0,0,0,.42)}
+.hero{--cw:60px}
+.hero .card{box-shadow:0 10px 24px rgba(0,0,0,.42)}
 @keyframes apre{from{opacity:0;transform:rotate(0deg) translateY(20px) scale(.88)}}
 
 /* ---- tipografia lobby ---- */
@@ -227,14 +228,30 @@ input[type=text]:focus{outline:2px solid var(--oro);outline-offset:1px}
 #qr{display:flex;justify-content:center;margin:12px 0 4px}
 #qr img,#qr canvas{border-radius:12px;border:6px solid #F3E7CD;background:#F3E7CD;display:block}
 .seatlist{list-style:none;margin:14px 0 0;padding:0;display:grid;gap:8px}
-.seatlist li{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:10px;
+.seatlist li{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:10px;min-width:0;
   background:var(--su-alto);box-shadow:var(--su-alto-om);border:1px solid var(--felt-line);
   font-size:15px}
 .seatlist li.nuovo{animation:slide .3s both}
 .seatlist li .n{width:22px;height:22px;border-radius:50%;background:var(--felt-line);display:grid;
   place-items:center;font-size:11px;flex:none}
 .seatlist li.me{border-color:var(--oro)}
-.seatlist li .team{margin-left:auto;font-size:12.5px;color:var(--dim)}
+.seatlist li .nome{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.seatlist li .team{margin-left:auto;font-size:12.5px;color:var(--dim);flex:none}
+/* La stanza che non ci sta, in due gradini: prima le spiegazioni, che a quel
+   punto sono già state lette, poi i posti su due colonne. Non dipende da
+   quanti siete ma da quanto spazio c'è davvero: lo decide la misura in
+   stanza(), perché sei posti ci stanno su un telefono alto e non ci stanno su
+   uno con l'incavo. */
+.wrap.senzanote .lede,.wrap.senzanote .chiusa{display:none}
+.wrap.stretta .seatlist{grid-template-columns:1fr 1fr;gap:6px}
+.wrap.stretta .seatlist li{padding:8px 10px;font-size:14px}
+.wrap.stretta .seatlist li.empty{grid-column:1 / -1}
+/* mezza riga non tiene «Squadra A»: resta la lettera, che è l'informazione.
+   Le mani vinte no: quelle stanno per intero nel pannello dei punteggi. */
+.wrap.stretta .seatlist li .team{font-size:11.5px}
+.wrap.stretta .seatlist .team .pre{display:none}
+.wrap.stretta .seatlist .team.albo{display:none}
+.wrap.stretta .roomcode{font-size:clamp(30px,10vw,42px)}
 .seatlist li.empty{color:var(--dim);font-style:italic}
 @keyframes slide{from{opacity:0;transform:translateY(-6px)}}
 
@@ -471,7 +488,7 @@ button.roomcode.giu{transform:scale(.98)}
 @keyframes spunta{from{stroke-dashoffset:22}to{stroke-dashoffset:0}}
 
 /* ---- il codice e il QR si toccano ---- */
-button.roomcode{width:100%;border:0;background:none}
+button.roomcode{width:100%;border:0;background:none;padding:0 0 0 .22em}
 .roomcode.lampo{animation:lampo .75s ease-out}
 @keyframes lampo{0%{color:var(--testo-forte);text-shadow:0 0 26px rgba(var(--acc-rgb),.85)}}
 #qrtap{display:block;margin:0 auto;padding:0;border-radius:14px}
@@ -534,46 +551,48 @@ button.roomcode{width:100%;border:0;background:none}
 
 /* Telefoni bassi: si stringono i respiri fra le fasce, che lì valgono
    più delle proporzioni. */
-@media (max-height:700px){
-  .wrap{padding-top:calc(8px + env(safe-area-inset-top));
+/* Le tre fasce di altezza non sono più media query: `max-height` misura il
+   viewport, non lo spazio davvero utilizzabile, e con viewport-fit=cover la
+   safe-area del notch se ne mangia fino a 93px che la media query non vede.
+   Le classi le mette misuraSchermo(), sull'altezza al netto degli incavi. */
+html.basso .wrap{padding-top:calc(8px + env(safe-area-inset-top));
     padding-bottom:calc(12px + env(safe-area-inset-bottom))}
-  /* Home su telefono basso: il ventaglio si rimpicciolisce, il titolo cala,
+/* Home su telefono basso: il ventaglio si rimpicciolisce, il titolo cala,
      e la riga di presentazione esce. Quello che serve per giocare resta. */
-  .hero{margin:4px 0 2px;min-height:64px}
-  .hero .card{--cw:38px}
-  .hero span+span{margin-left:-16px}
-  .brand{margin:2px 0}
-  .brand h1{font-size:clamp(30px,10vw,42px)}
-  .brand h1 em{margin-top:6px}
-  .rule{margin:8px 0}
-  .lede{display:none}
-  .panel{padding:11px;margin-top:8px}
-  .btn{padding:11px;margin-top:8px}
-  label.f{margin-bottom:6px}
-  .hint{margin-top:8px}
-  .seatlist{gap:6px}
-  .seatlist li{padding:8px 11px}
-  .roomcode{font-size:clamp(34px,12vw,46px)}
-  #qr{margin:8px 0 2px}
-  .felt{gap:6px;padding:4px 6px;min-height:150px}
-  .opps{margin-bottom:4px}
-  .scores{margin-top:6px}
-  .hand{padding-top:10px}
-}
+html.basso .hero{margin:4px 0 2px;min-height:64px}
+html.basso .hero{--cw:38px}
+html.basso .hero span+span{margin-left:-16px}
+html.basso .brand{margin:2px 0}
+html.basso .brand h1{font-size:clamp(30px,10vw,42px)}
+html.basso .brand h1 em{margin-top:6px}
+html.basso .rule{margin:8px 0}
+html.basso .lede{display:none}
+html.basso .panel{padding:11px;margin-top:8px}
+html.basso .btn{padding:11px;margin-top:8px}
+html.basso label.f{margin-bottom:6px}
+html.basso .hint{margin-top:8px}
+html.basso .seatlist{gap:6px}
+html.basso .seatlist li{padding:8px 11px}
+html.basso .roomcode{font-size:clamp(34px,12vw,46px)}
+html.basso #qr{margin:8px 0 2px}
+html.basso .felt{gap:6px;padding:4px 6px;min-height:150px}
+html.basso .opps{margin-bottom:4px}
+html.basso .scores{margin-top:6px}
+html.basso .hand{padding-top:10px}
 /* Il piano su cui volano le carte durante la distribuzione: sta sopra al
    tavolo e sotto ai pannelli, e non intercetta i tocchi. */
 #volo{position:fixed;inset:0;pointer-events:none;z-index:18}
 #volo .backcard,#volo .card{position:absolute;top:0;left:0;will-change:transform}
-/* I telefoni davvero piccoli, tipo il primo SE: resta il minimo per giocare. */
-@media (max-height:620px){
-  .hero{min-height:52px;margin:2px 0 0}
-  .hero .card{--cw:32px}
-  .hero span+span{margin-left:-12px}
-  .brand h1{font-size:clamp(26px,8.5vw,34px)}
-  .rule{margin:6px 0}
-  .panel .hint{display:none}
-  .panel{padding:10px;margin-top:6px}
-}
+/* I telefoni davvero piccoli, tipo il primo SE: resta il minimo per giocare.
+   Viene dopo il blocco di html.basso apposta: stessa specificità, vince
+   l'ultimo scritto. */
+html.minuscolo .hero{min-height:52px;margin:2px 0 0}
+html.minuscolo .hero{--cw:32px}
+html.minuscolo .hero span+span{margin-left:-12px}
+html.minuscolo .brand h1{font-size:clamp(26px,8.5vw,34px)}
+html.minuscolo .rule{margin:6px 0}
+html.minuscolo .panel .hint{display:none}
+html.minuscolo .panel{padding:10px;margin-top:6px}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
@@ -1306,6 +1325,72 @@ function scongelaCampi(c){
   e.focus({preventScroll:true});
   try{ e.setSelectionRange(c.cursore,c.cursore); }catch(x){}
 }
+/* ================= le tre fasce di altezza =================
+   `@media (max-height:…)` misura il viewport, non lo spazio in cui si disegna
+   davvero: con viewport-fit=cover la safe-area dell'incavo si prende fino a
+   93px che la media query non conta, e la stanza finiva sotto il bordo dello
+   schermo su ogni telefono col notch, anche in due. Le fasce le decide qui il
+   JS, sull'altezza al netto degli incavi, e le scrive sulla radice.
+   La sonda serve perché env() si legge solo da un elemento, non da JS. */
+let sonda=null;
+function altezzaUtile(){
+  if(!sonda){
+    sonda=document.createElement('div');
+    sonda.className='sonda'; // le prove ci si appoggiano per simulare gli incavi
+    sonda.style.cssText='position:fixed;top:0;left:0;width:0;height:0;visibility:hidden;'
+      +'padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)';
+    document.body.appendChild(sonda);
+  }
+  const cs=getComputedStyle(sonda);
+  return innerHeight-(parseFloat(cs.paddingTop)||0)-(parseFloat(cs.paddingBottom)||0);
+}
+/* Le soglie si guardano sull'altezza utile e non su quella corrente, se no
+   si oscilla: html.basso stringe anche il padding di .wrap, che rifarebbe
+   salire l'altezza sopra la soglia da cui si era appena scesi. */
+function misuraSchermo(){
+  const u=altezzaUtile(), r=document.documentElement;
+  const basso=u<700, minuscolo=u<620;
+  if(r.classList.contains('basso')===basso&&r.classList.contains('minuscolo')===minuscolo) return false;
+  r.classList.toggle('basso',basso); r.classList.toggle('minuscolo',minuscolo);
+  return true;
+}
+/* Il QR prende quello che resta, ed è giusto che sia lui a cedere: è l'unica
+   cosa della stanza che si può stringere senza perdere niente, e intanto la
+   lista dei posti cresce fino a sei righe. Si misura a QR ancora vuoto, e
+   senza limiti, perché lo stesso numero dice anche se la stanza non ci sta. */
+function spazioQR(){
+  const app=$('app'), prima=app.style.minHeight;
+  app.style.minHeight='0';
+  const naturale=app.getBoundingClientRect().height;
+  app.style.minHeight=prima;
+  // 12 sono i due bordi chiari attorno al codice, il resto è respiro
+  return innerHeight-naturale-20;
+}
+/* Il ventaglio di copertina è la parte elastica della home: prima che a
+   scrollare sia tutto il resto, si stringe. Le fasce non bastano da sole:
+   su un telefono con l'incavo restano 763px utili, che non sono pochi
+   abbastanza per far scattare html.basso ma non bastano per la home intera. */
+function misuraHome(){
+  const app=$('app'), hero=app.querySelector('.hero');
+  if(!hero) return;
+  hero.style.removeProperty('--cw');
+  hero.style.removeProperty('min-height');
+  hero.style.removeProperty('display');
+  const prima=app.style.minHeight;
+  app.style.minHeight='0';
+  const troppo=app.getBoundingClientRect().height-innerHeight;
+  if(troppo>0){
+    const bersaglio=hero.getBoundingClientRect().height-troppo;
+    if(bersaglio<44) hero.style.display='none';
+    else {
+      // il ventaglio è alto quanto una carta più il gioco delle rotazioni
+      hero.style.setProperty('--cw',Math.max(26,Math.floor(bersaglio/1.1/arTema()))+'px');
+      hero.style.minHeight=Math.ceil(bersaglio)+'px';
+      if(app.getBoundingClientRect().height>innerHeight) hero.style.display='none';
+    }
+  }
+  app.style.minHeight=prima;
+}
 function paint(err){
   const campi=congelaCampi();
   disegna(err);
@@ -1430,6 +1515,7 @@ function invito(cod,err){
   $('go').onclick=vai;
   $('nm').onkeydown=e=>{ if(e.key==='Enter') vai(); };
   $('altro').onclick=()=>{ location.hash=''; invitoVisto=true; paint(); };
+  misuraHome();
   if(me.name) setTimeout(()=>$('go').focus(),50);
 }
 function lobby(err){
@@ -1468,6 +1554,7 @@ function lobby(err){
   if(promptInstalla&&$('install')) $('install').style.display='block';
   if($('install')) $('install').onclick=installa;
   const hh=location.hash.replace('#','').toUpperCase(); if(hh.length===4) $('cd').value=hh;
+  misuraHome();
 }
 
 function attesaConn(err){
@@ -1495,7 +1582,7 @@ function stanza(){
     aria-label="Codice del tavolo ${S.code.split('').join(' ')}, tocca per copiarlo">${S.code}</button>
   <button id="qrtap" aria-label="Ingrandisci il codice QR"><div id="qr"></div></button>
   <p class="lede" style="font-size:14px">Fai inquadrare il codice, o detta le quattro lettere.</p>
-  <ul class="seatlist">${S.seats.map((s,i)=>`<li class="${s.id===me.id?'me':''}${nuoviPosti[i]?' nuovo':''}"><span class="n">${i+1}</span>${s.name}${s.id===me.id?' · tu':''}${S.albo&&S.albo[s.id]?`<span class="team">${S.albo[s.id]} man${S.albo[s.id]>1?'i':'o'} vint${S.albo[s.id]>1?'e':'a'}</span>`:(sq?`<span class="team">Squadra ${i%2?'B':'A'}</span>`:'')}</li>`).join('')
+  <ul class="seatlist">${S.seats.map((s,i)=>`<li class="${s.id===me.id?'me':''}${nuoviPosti[i]?' nuovo':''}"><span class="n">${i+1}</span><span class="nome">${s.name}${s.id===me.id?' · tu':''}</span>${S.albo&&S.albo[s.id]?`<span class="team albo">${S.albo[s.id]} man${S.albo[s.id]>1?'i':'o'} vint${S.albo[s.id]>1?'e':'a'}</span>`:(sq?`<span class="team"><span class="pre">Squadra </span>${i%2?'B':'A'}</span>`:'')}</li>`).join('')
     +(liberi>0?`<li class="empty"><span class="n">+</span>${liberi} post${liberi>1?'i':'o'} liber${liberi>1?'i':'o'}</li>`:'')}</ul>
   ${isHost?`
     <div class="seg" style="margin-top:12px" id="gm">
@@ -1512,7 +1599,7 @@ function stanza(){
       invitoOk?ICO.ok+'<span>Link copiato</span>'
              :(siCondivide()?'Manda l\'invito':'Copia il link')}</button>`
   :`<p class="hint" style="text-align:center;margin-top:16px">Siete in ${k}. Le carte le dà chi ha aperto il tavolo.</p>`}
-  <p class="hint">${S.game==='scopa'
+  <p class="hint chiusa">${S.game==='scopa'
     ? 'A scopa si gioca in due, tre, quattro o sei. '
     : (k===3?'In tre si toglie un due dal mazzo: i punti restano 120. ':'')+(k===6?'In sei si tolgono i quattro due: i punti restano 120. ':'')
   }Chi ha aperto il tavolo fa da mazziere e deve tenere la pagina aperta.</p>`;
@@ -1525,7 +1612,27 @@ function stanza(){
   if($('sq'))document.querySelectorAll('#sq button').forEach(b=>b.onclick=()=>send({t:'squadre',v:+b.dataset.v}));
   if($('gm'))document.querySelectorAll('#gm button').forEach(b=>b.onclick=()=>send({t:'gioco',v:b.dataset.v}));
   if($('link'))$('link').onclick=mandaInvito;
-  const qs=innerHeight<620?112:(innerHeight<700?134:172);
+  /* Si misura, e se il QR non ci sta si toglie qualcosa e si rimisura: prima
+     le due righe di spiegazione, che a quel punto sono già state lette, poi i
+     posti su due colonne. Lo decide lo spazio vero e non il numero di
+     giocatori, perché sei posti ci stanno su un telefono alto e non ci stanno
+     su uno con l'incavo e la barra in basso. */
+  const app=$('app');
+  app.classList.remove('senzanote','stretta');
+  let spazio=spazioQR();
+  if(spazio<96){ app.classList.add('senzanote'); spazio=spazioQR(); }
+  if(spazio<96){ app.classList.add('stretta'); spazio=spazioQR(); }
+  /* Se le due colonne da sole bastavano, le due righe tornano: mettere i posti
+     su due colonne non toglie niente, toglierle sì. Prima si provano nell'altro
+     ordine perché su un telefono stretto due colonne accorciano i nomi. */
+  if(app.classList.contains('stretta')){
+    app.classList.remove('senzanote');
+    const largo=spazioQR();
+    if(largo>=96) spazio=largo; else app.classList.add('senzanote');
+  }
+  // e se avanza spazio se lo prende: più grande è, più da lontano si inquadra
+  const qs=Math.round(Math.max(app.classList.contains('stretta')?80:96,
+                               Math.min(240,spazio)));
   const cs=getComputedStyle(document.documentElement);
   const qScuro=(cs.getPropertyValue('--qr-scuro')||'').trim()||'#102A22';
   const qChiaro=(cs.getPropertyValue('--qr-chiaro')||'').trim()||'#F3E7CD';
@@ -2008,6 +2115,18 @@ setInterval(()=>{
   }
 },BATTITO);
 
+/* Rotazione, tastiera che sale, barra del browser che si ritira: cambia
+   l'altezza utile, e con lei la fascia e la misura del QR. */
+let riMisura=null;
+addEventListener('resize',()=>{
+  clearTimeout(riMisura);
+  riMisura=setTimeout(()=>{
+    const cambiata=misuraSchermo();
+    if(cambiata||(S&&S.phase==='attesa')) paint();
+  },160);
+});
+
+misuraSchermo();
 connect(()=>paint());
 paint();
 </script>

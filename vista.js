@@ -145,6 +145,71 @@ const attesa = ms => new Promise(r => setTimeout(r, ms));
   ok(await A.isVisible('.timbro'), 'il timbro della scopa compare');
   await A.screenshot({ path: path.join(SCATTI, '8-timbro-scopa.png') });
 
+  /* La stanza ci deve stare senza scrollare anche col notch: `max-height` non
+     vede la safe-area, e con viewport-fit=cover se ne va fino a 93px. Qui la
+     safe-area si simula col padding, che in headless vale zero. */
+  const TEL = [['iPhone SE 1', 320, 568, 0, 0], ['iPhone 14', 390, 844, 47, 34],
+               ['iPhone 15 ProMax', 430, 932, 59, 34], ['Galaxy S8', 360, 740, 24, 24]];
+  const finge = n => `
+    code='ABCD'; isHost=true; mySeat=0; connected=true;
+    S={code:'ABCD',phase:'attesa',game:'briscola',teams:true,first:0,albo:{},mano:0,
+       seats:Array.from({length:${n}},(_,i)=>({id:i?'x'+i:me.id,
+         name:['Bartolomeo','Concetta','Gennaro','Assunta','Pasqualino','Rosaria'][i]}))};
+    paint();`;
+  for (const [tel, w, h, alto, basso] of TEL) {
+    for (const n of [2, 4, 6]) {
+      const c = await contesto();
+      const p = await nuovaScheda(c, 'stanza');
+      await p.setViewportSize({ width: w, height: h });
+      await p.goto('http://localhost:8731/');
+      await p.waitForSelector('#crea', { timeout: 4000 });
+      await p.addStyleTag({
+        content: `.wrap{padding-top:${14 + alto}px !important;padding-bottom:${20 + basso}px !important}`
+          + `.sonda{padding-top:${alto}px !important;padding-bottom:${basso}px !important}`
+      });
+      await p.evaluate(s => window.eval(s), finge(n));
+      await attesa(300);
+      const m = await p.evaluate(() => {
+        const wr = document.querySelector('.wrap');
+        const prima = wr.style.minHeight; wr.style.minHeight = '0';
+        const nat = Math.ceil(wr.getBoundingClientRect().height);
+        wr.style.minHeight = prima;
+        return { nat, i: innerHeight };
+      });
+      ok(m.nat <= m.i, `stanza in ${n} su ${tel}: ci sta senza scrollare (${m.nat} su ${m.i})`);
+      pagine.splice(pagine.indexOf(p), 1);
+      await c.close();
+    }
+  }
+
+  /* Home e schermata d'invito, con gli incavi: il ventaglio di copertina cede
+     quanto serve invece di far scrollare il resto. */
+  for (const [tel, w, h, alto, basso] of TEL) {
+    for (const [dove, hash] of [['home', ''], ['invito', '#ABCD']]) {
+      const c = await contesto();
+      const p = await nuovaScheda(c, dove);
+      await p.setViewportSize({ width: w, height: h });
+      await p.goto('http://localhost:8731/' + hash);
+      await p.waitForSelector(hash ? '#go' : '#crea', { timeout: 4000 });
+      await p.addStyleTag({
+        content: `.wrap{padding-top:${14 + alto}px !important;padding-bottom:${20 + basso}px !important}`
+          + `.sonda{padding-top:${alto}px !important;padding-bottom:${basso}px !important}`
+      });
+      await p.evaluate(() => { misuraSchermo(); paint(); });
+      await attesa(250);
+      const m = await p.evaluate(() => {
+        const wr = document.querySelector('.wrap');
+        const prima = wr.style.minHeight; wr.style.minHeight = '0';
+        const nat = Math.ceil(wr.getBoundingClientRect().height);
+        wr.style.minHeight = prima;
+        return { nat, i: innerHeight };
+      });
+      ok(m.nat <= m.i, `${dove} su ${tel}: ci sta senza scrollare (${m.nat} su ${m.i})`);
+      pagine.splice(pagine.indexOf(p), 1);
+      await c.close();
+    }
+  }
+
   // niente deve scrollare, a nessuna misura
   for (const [w, h] of [[320, 568], [390, 844], [430, 932], [768, 1024]]) {
     for (const q of [A, B]) await q.setViewportSize({ width: w, height: h });

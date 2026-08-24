@@ -44,6 +44,12 @@ incrementale — il successivo rimette tutti in pari.
 
 Uscendo, il mazziere pubblica un retained vuoto per smontare il tavolo.
 
+Il service worker serve **`index.html` prima dalla rete** e tiene la cache come rete di
+sicurezza per quando il telefono è offline. Il contrario, che è la scelta normale per un
+guscio, qui era sbagliato: il guscio *è* l'app, cambia a ogni modifica, e servirlo dalla
+cache voleva dire far vedere la versione vecchia e accorgersi della nuova solo al secondo
+avvio. Icone e manifest, che cambiano di rado, restano cache-first.
+
 ### Conseguenze note e accettate
 
 - Se il mazziere chiude la pagina la partita muore. Non c'è migrazione dell'autorità.
@@ -70,6 +76,8 @@ Uscendo, il mazziere pubblica un retained vuoto per smontare il tavolo.
 | `nega(el, testo)` | un tocco che non può fare niente, e il perché |
 | `presenzaDiff()` | chi si è appena seduto, chi se n'è andato, chi aspetta |
 | `volaPrese()` / `timbroScopa()` | la presa e la scopa, a scopa |
+| `misuraSchermo()` | le fasce di altezza, al netto degli incavi |
+| `spazioQR()` / `misuraHome()` | quanto cede il QR, quanto cede il ventaglio |
 
 Le viste ricostruiscono `#app` via `innerHTML` a ogni cambio di stato. È volutamente
 grezzo e va benissimo a queste dimensioni: non introdurre un framework.
@@ -233,10 +241,35 @@ al posto di `--pw` dentro la media query. In sei si passa da una cinquantina di 
 doppio. Nella stessa situazione il blocco si sposta a sinistra (`.felt.folto`) per non
 finire sotto il mazzo.
 
-La home e la stanza non hanno misure elastiche: stanno in piedi su tre scaglioni di
-altezza. Sopra i 700px va tutto per intero; sotto, il ventaglio di copertina si
-rimpicciolisce e la riga di presentazione esce; sotto i 620 restano solo titolo, campi e
-bottoni. Il QR della stanza segue `innerHeight` in `stanza()`.
+La home sta in piedi su tre scaglioni di altezza. Sopra i 700px va tutto per intero;
+sotto, il ventaglio di copertina si rimpicciolisce e la riga di presentazione esce; sotto
+i 620 restano solo titolo, campi e bottoni.
+
+**Gli scaglioni non sono media query.** `max-height` misura il viewport, non lo spazio in
+cui si disegna: la pagina ha `viewport-fit=cover`, quindi su un telefono con l'incavo la
+safe-area si prende fino a 93px che la media query non conta, e le fasce non scattavano
+mai. Le mette `misuraSchermo()` come classi sulla radice, `html.basso` e
+`html.minuscolo`, misurando l'altezza al netto degli incavi con una sonda — `env()` si
+legge solo da un elemento, non da JS. Le soglie si guardano su quell'altezza e non su
+quella corrente: `html.basso` stringe anche il padding di `.wrap`, e guardando il valore
+corrente si oscillerebbe attorno alla soglia.
+
+Anche così la home non ci stava: con l'incavo restano 763px utili su un iPhone 14, che
+non sono pochi abbastanza per far scattare `html.basso` ma non bastano per la home
+intera. La parte elastica è il ventaglio di copertina, e `misuraHome()` gliela fa fare:
+misura di quanto si sfora e stringe le tre carte di quel tanto, fino a toglierle. Per
+questo `--cw` del ventaglio sta su `.hero` e non su `.hero .card` — così si può
+sovrascrivere dall'alto.
+
+**La stanza invece si misura davvero**, perché la lista dei posti cresce fino a sei righe
+e il totale cambia col telefono. `stanza()` disegna a QR ancora vuoto, chiede a
+`spazioQR()` quanto resta, e se non basta toglie qualcosa e rimisura: prima le due righe
+di spiegazione (`.senzanote`), poi i posti su due colonne (`.stretta`). Alla fine riprova
+a rimettere le spiegazioni, perché mettere i posti su due colonne non toglie niente
+mentre toglierle sì — si prova nell'altro ordine solo perché su un telefono stretto le
+due colonne accorciano i nomi. Quello che avanza se lo prende il QR, fino a 240px: più è
+grande, più da lontano si inquadra. Se tocchi la stanza, rimisura con `vista.js`, che
+prova 2, 4 e 6 posti su quattro telefoni con la loro safe-area.
 
 Toccando questi valori, rimisurare: basta caricare `index.html` in un browser headless,
 piazzare uno stato finto e controllare che `scrollHeight` non superi `innerHeight` per
