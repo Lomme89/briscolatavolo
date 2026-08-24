@@ -441,6 +441,97 @@ input[type=text]:focus{outline:2px solid var(--oro);outline-offset:1px}
 .rank{padding:6px 9px;border-radius:8px;background:var(--su-alto);box-shadow:var(--su-alto-om);
   border:1px solid var(--felt-line);font-size:13px}
 .rank b{color:var(--oro);font-family:var(--display);font-weight:var(--display-w);letter-spacing:var(--display-ls);font-size:16px;margin-right:5px}
+/* ---- risposta al tocco ----
+   Le carte si abbassano al pointerdown perché su telefono :active non è
+   affidabile (vedi .premuta); i bottoni erano rimasti indietro. La classe
+   .giu la mette un ascoltatore solo, in delega su document, così vale anche
+   per i bottoni che le viste ricreano a ogni stato. */
+.btn,.seg button,.topbar button,.scegli button,button.roomcode{
+  transition:transform .13s,filter .13s,background .18s,color .18s,box-shadow .18s}
+.btn.giu{transform:scale(.97);filter:brightness(1.06)}
+.seg button.giu,.scegli button.giu{transform:scale(.95)}
+.topbar button.giu{transform:scale(.92);background:rgba(128,128,128,.18)}
+.temi .tema.giu{transform:scale(.86)}
+button.roomcode.giu{transform:scale(.98)}
+.btn:focus-visible,.seg button:focus-visible,.topbar button:focus-visible,
+.scegli button:focus-visible,.temi .tema:focus-visible,button.roomcode:focus-visible,
+#qrtap:focus-visible{outline:2px solid var(--oro);outline-offset:2px}
+/* Spento, non disabilitato: un bottone disabled non riceve nemmeno il tocco,
+   e chi lo tocca resta senza risposta. Così invece si può dire perché no. */
+.btn.spento{opacity:.5;filter:saturate(.7)}
+.slot.muta{opacity:.58;filter:saturate(.72);cursor:default}
+
+/* ---- conferma sul bottone ---- */
+.btn.fatto{display:flex;align-items:center;justify-content:center;gap:9px;
+  background:var(--oro);color:var(--acc-testo);border-color:var(--oro);font-weight:700}
+.btn.fatto .ico{width:20px;height:20px;stroke-width:2.6}
+/* la spunta si disegna solo quando è appena arrivata: legata a una classe,
+   come le altre entrate, se no un ridisegno qualsiasi la rifà da capo */
+.btn.fatto.appena .ico{stroke-dasharray:22;animation:spunta .38s cubic-bezier(.3,1.1,.4,1) both}
+@keyframes spunta{from{stroke-dashoffset:22}to{stroke-dashoffset:0}}
+
+/* ---- il codice e il QR si toccano ---- */
+button.roomcode{width:100%;border:0;background:none}
+.roomcode.lampo{animation:lampo .75s ease-out}
+@keyframes lampo{0%{color:var(--testo-forte);text-shadow:0 0 26px rgba(var(--acc-rgb),.85)}}
+#qrtap{display:block;margin:0 auto;padding:0;border-radius:14px}
+/* Il QR si fa inquadrare da chi sta dall'altra parte del tavolo: dentro la
+   pagina è troppo piccolo, a tutto schermo si legge. Il riquadro prende i
+   colori del QR del tema, che sono già una superficie di carta. */
+.qrfull{position:fixed;inset:0;z-index:22;background:var(--velo);backdrop-filter:blur(3px);
+  display:flex;align-items:center;justify-content:center;padding:20px;animation:fade .2s}
+.qrfull .qrbox{background:var(--qr-chiaro);border-radius:18px;padding:16px;text-align:center;
+  max-width:100%;animation:up .26s cubic-bezier(.2,.9,.3,1.1)}
+.qrfull .qrbox img,.qrfull .qrbox canvas{display:block;margin:0 auto}
+.qrfull .cod{font-family:var(--display);font-weight:var(--display-w);letter-spacing:.22em;
+  font-size:clamp(26px,9vw,34px);color:var(--qr-scuro);margin:12px 0 0;padding-left:.22em}
+.qrfull .via{font-size:12.5px;color:var(--qr-scuro);opacity:.7;margin:3px 0 0}
+
+/* ---- avvisi ----
+   Un posto dove dire una cosa breve. Prima non c'era, e per questo la
+   conferma del copia finiva dentro l'etichetta di un bottone. */
+#toast{position:fixed;left:50%;transform:translateX(-50%);z-index:30;
+  bottom:calc(18px + env(safe-area-inset-bottom));display:flex;flex-direction:column;
+  align-items:center;gap:7px;pointer-events:none;width:max-content;max-width:min(92vw,430px)}
+#toast .msg{display:flex;align-items:center;gap:9px;padding:10px 16px;border-radius:999px;
+  background:var(--pannello);border:1px solid var(--felt-line);
+  box-shadow:0 10px 28px rgba(0,0,0,.4);color:var(--testo);font-size:14px;line-height:1.35;
+  animation:avvisoIn .26s cubic-bezier(.2,.9,.3,1.15) both}
+#toast .msg b{color:var(--oro);font-weight:600}
+#toast .msg .ico{flex:none;width:17px;height:17px;color:var(--oro)}
+#toast .msg.ko{border-color:var(--ko)}
+#toast .msg.ko .ico{color:var(--ko)}
+#toast .msg.esce{animation:avvisoOut .22s ease-in both}
+@keyframes avvisoIn{from{opacity:0;transform:translateY(16px) scale(.92)}}
+@keyframes avvisoOut{to{opacity:0;transform:translateY(6px) scale(.96)}}
+
+/* ---- il timbro della scopa ----
+   Era una parola dentro una frase, e spariva allo stato dopo: è il momento
+   più rumoroso del gioco. Sta in #volo per non farsi cancellare dal
+   ridisegno di #app che arriva col messaggio di stato successivo. */
+.timbro{position:absolute;inset:0;display:grid;place-items:center;text-align:center;pointer-events:none}
+.timbro span{display:block;font-family:var(--display);font-weight:var(--display-w);
+  letter-spacing:var(--display-ls);font-size:clamp(44px,16vw,86px);color:var(--oro);
+  text-transform:uppercase;line-height:1;
+  text-shadow:0 6px 26px rgba(0,0,0,.6),0 0 44px rgba(var(--acc-rgb),.55);
+  animation:timbra 1.5s cubic-bezier(.2,1.4,.35,1) both}
+.timbro small{display:block;margin-top:10px;font-size:15px;color:var(--testo-forte);
+  text-shadow:0 2px 10px rgba(0,0,0,.75);animation:avvisoIn .4s .18s both}
+@keyframes timbra{0%{opacity:0;transform:scale(2.6) rotate(-16deg)}
+  22%{opacity:1;transform:scale(1) rotate(-7deg)}
+  76%{opacity:1;transform:scale(1) rotate(-7deg)}
+  100%{opacity:0;transform:scale(1.06) rotate(-7deg)}}
+/* La pastiglia di chi incassa: le carte le arrivano addosso e restava ferma. */
+.opp.incassa{animation:incassa .5s cubic-bezier(.3,1.5,.4,1)}
+@keyframes incassa{40%{transform:scale(1.12);border-color:var(--oro);
+  box-shadow:var(--su-alto-om),0 0 0 4px rgba(var(--acc-rgb),.3)}}
+/* Chi aspetta il prossimo giro lo sapeva solo lui: al tavolo non lo vedeva nessuno. */
+.coda{margin:-2px 0 8px;text-align:center;font-size:12px;color:var(--dim)}
+.coda b{color:var(--testo);font-weight:600}
+/* Il mazziere che esce smonta il tavolo di tutti: due tocchi, come "chiudi la mano". */
+.topbar button.chiede{color:var(--acc-testo);background:var(--ko);
+  animation:breathe 1.3s ease-in-out infinite}
+
 /* Telefoni bassi: si stringono i respiri fra le fasce, che lì valgono
    più delle proporzioni. */
 @media (max-height:700px){
@@ -472,7 +563,7 @@ input[type=text]:focus{outline:2px solid var(--oro);outline-offset:1px}
 /* Il piano su cui volano le carte durante la distribuzione: sta sopra al
    tavolo e sotto ai pannelli, e non intercetta i tocchi. */
 #volo{position:fixed;inset:0;pointer-events:none;z-index:18}
-#volo .backcard{position:absolute;top:0;left:0;will-change:transform}
+#volo .backcard,#volo .card{position:absolute;top:0;left:0;will-change:transform}
 /* I telefoni davvero piccoli, tipo il primo SE: resta il minimo per giocare. */
 @media (max-height:620px){
   .hero{min-height:52px;margin:2px 0 0}
@@ -490,6 +581,7 @@ input[type=text]:focus{outline:2px solid var(--oro);outline-offset:1px}
 <div class="wrap" id="app"><p class="lede" style="margin-top:40vh">Collegamento…</p></div>
 <div id="ov"></div>
 <div id="volo" aria-hidden="true"></div>
+<div id="toast" role="status" aria-live="polite"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.10.1/mqtt.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
@@ -545,7 +637,9 @@ const ICO={
   esci:svg('<path d="M6.5 6.5l11 11"/><path d="M17.5 6.5l-11 11"/>'),
   audioSi:svg('<path d="M4 9.4h3.4L11.8 5.6v12.8L7.4 14.6H4z"/><path d="M15.2 9.4a3.8 3.8 0 0 1 0 5.2"/>'
     +'<path d="M17.9 6.9a7.4 7.4 0 0 1 0 10.2"/>'),
-  audioNo:svg('<path d="M4 9.4h3.4L11.8 5.6v12.8L7.4 14.6H4z"/><path d="M15.6 9.9l4.6 4.2"/><path d="M20.2 9.9l-4.6 4.2"/>')
+  audioNo:svg('<path d="M4 9.4h3.4L11.8 5.6v12.8L7.4 14.6H4z"/><path d="M15.6 9.9l4.6 4.2"/><path d="M20.2 9.9l-4.6 4.2"/>'),
+  ok:svg('<path d="M5 12.6l4.6 4.6L19 7.6"/>'),
+  persona:svg('<circle cx="12" cy="8.6" r="3.5"/><path d="M5.2 19.4a6.8 6.8 0 0 1 13.6 0"/>')
 };
 const pts=c=>PT[c.r]||0;
 const nomeCarta=c=>(NOMI[c.r]||c.r)+' di '+SUITS[c.s].nome;
@@ -633,7 +727,12 @@ const SND={
   dai:(t0,i)=>fruscio(t0,.24,1050+(i%3)*220),
   entra:()=>{tono(523,0,.12,'sine',.09);tono(784,.08,.2,'sine',.09);},
   finePro:()=>{[523,659,784,1046].forEach((f,i)=>tono(f,i*.11,.35));},
-  fineContro:()=>{[440,392,330].forEach((f,i)=>tono(f,i*.13,.4));}
+  fineContro:()=>{[440,392,330].forEach((f,i)=>tono(f,i*.13,.4));},
+  /* Fatto, non si può, qualcuno è arrivato: tre risposte che prima non
+     avevano voce, e senza le quali ogni conferma era muta. */
+  ok:()=>{tono(784,0,.09,'sine',.085);tono(1046,.065,.17,'sine',.075);},
+  nega:()=>{tono(210,0,.12,'triangle',.1);tono(165,.075,.2,'triangle',.085);},
+  arriva:()=>{tono(659,0,.1,'sine',.08);tono(988,.075,.22,'sine',.07);}
 };
 
 /* ================= rete ================= */
@@ -837,6 +936,7 @@ function esci(){
   if(cli){cli.unsubscribe(T(code).s);cli.unsubscribe(T(code).a);cli.unsubscribe(T(code).h);}
   visti={};mazziereVisto=0;viaPrec='';persoPrec=false;
   if(isHost&&cli) cli.publish(T(code).s,'',{retain:true});
+  esciChiesto=false; clearTimeout(esciTorna); presenti=null; codaVista=[];
   code=null;isHost=false;S=null;mySeat=-1;location.hash='';invitoVisto=true;
   prev={turn:null,tavolo:0,fase:null,punti:null};azzeraViste();paint();
 }
@@ -845,6 +945,47 @@ function esci(){
    vibrazione è il canale che arriva davvero. Segue il tasto del muto,
    perché quel tasto dice "silenzia", non "silenzia solo l'audio". */
 function vibra(p){ if(muto||RM) return; try{ navigator.vibrate && navigator.vibrate(p); }catch(e){} }
+
+/* ================= avvisi =================
+   Un posto dove dire una cosa breve. Prima non c'era: per questo la conferma
+   del copia finiva dentro l'etichetta di un bottone. È anche l'unico punto
+   dell'app che parla a chi usa uno screen reader, con aria-live. */
+function avvisa(testo,o){
+  o=o||{};
+  const p=$('toast'); if(!p) return;
+  const el=document.createElement('div');
+  el.className='msg'+(o.ko?' ko':'');
+  el.innerHTML=(o.ico||'')+'<span>'+testo+'</span>';
+  p.appendChild(el);
+  while(p.children.length>3) p.firstChild.remove();
+  setTimeout(()=>{ el.classList.add('esce'); setTimeout(()=>el.remove(),240); },o.ms||2400);
+}
+/* Un tocco che non può fare niente deve dirlo: i bottoni spenti e le carte
+   non giocabili erano `disabled`, cioè non ricevevano nemmeno il tocco, e
+   chi toccava non sapeva se fosse arrivato o se l'app fosse morta. */
+function nega(el,testo){
+  vibra([0,24,55,24]); SND.nega();
+  if(el&&!RM) el.animate([{transform:'translateX(0)'},{transform:'translateX(-6px)'},
+    {transform:'translateX(6px)'},{transform:'translateX(-3px)'},{transform:'none'}],
+    {duration:300,easing:'ease-out'});
+  if(testo) avvisa(testo,{ko:1});
+}
+/* Copiare può fallire: fuori da https la Clipboard API non c'è, e anche
+   dove c'è il permesso si può negare. Prima si scriveva «Link copiato»
+   comunque, che è la bugia peggiore perché uno smette di provarci. */
+async function copiaTesto(t){
+  try{ if(navigator.clipboard&&window.isSecureContext){ await navigator.clipboard.writeText(t); return true; } }
+  catch(e){}
+  try{
+    const f=document.createElement('textarea');
+    f.value=t; f.setAttribute('readonly','');
+    f.style.cssText='position:fixed;top:-1000px;left:0;opacity:0';
+    document.body.appendChild(f);
+    f.select(); f.setSelectionRange(0,t.length);
+    const ok=document.execCommand('copy');
+    f.remove(); return !!ok;
+  }catch(e){ return false; }
+}
 
 /* ================= suoni reattivi ================= */
 function suoniDiff(){
@@ -873,6 +1014,38 @@ function suoniDiff(){
   }
   prev={turn:S.turn,tavolo:t,fase:S.phase,punti:S.points?S.points.join():null};
 }
+
+/* ================= chi arriva e chi se ne va =================
+   La lista dei posti aveva già l'entrata animata, ma muta; e chi guarda il
+   tavolo, non la lista, non se ne accorgeva affatto. Gira su ogni vista,
+   perché al tavolo si entra anche a mano iniziata. */
+let presenti=null, codaVista=[], nomiVisti={};
+function presenzaDiff(){
+  if(!S||!S.seats){ presenti=null; codaVista=[]; return; }
+  const ora=S.seats.map(x=>x.id), coda=(S.coda||[]).map(x=>x.id);
+  S.seats.concat(S.coda||[]).forEach(x=>{ nomiVisti[x.id]=x.name; });
+  if(presenti){
+    const entrati=S.seats.filter(x=>presenti.indexOf(x.id)<0&&x.id!==me.id);
+    entrati.forEach(x=>avvisa('<b>'+x.name+'</b> si mette al tavolo',{ico:ICO.persona}));
+    if(entrati.length){ SND.arriva(); vibra(10); }
+    presenti.filter(id=>ora.indexOf(id)<0&&coda.indexOf(id)<0&&id!==me.id)
+      .forEach(id=>avvisa('<b>'+(nomiVisti[id]||'Qualcuno')+'</b> ha lasciato il tavolo',{ico:ICO.persona}));
+    if(ora.indexOf(me.id)>=0&&presenti.indexOf(me.id)<0){
+      avvisa(codaVista.indexOf(me.id)>=0?'Ti sei seduto: da adesso giochi':'Sei al tavolo',{ico:ICO.ok});
+      SND.entra(); vibra(14);
+    }
+    (S.coda||[]).filter(x=>codaVista.indexOf(x.id)<0&&x.id!==me.id)
+      .forEach(x=>avvisa('<b>'+x.name+'</b> aspetta il prossimo giro',{ico:ICO.persona}));
+  }
+  presenti=ora; codaVista=coda;
+}
+/* Chi aspetta il prossimo giro lo sapeva solo lui: né il mazziere né gli
+   altri vedevano che c'era qualcuno in piedi dietro al tavolo. */
+const codaBar=()=>{
+  const q=(S.coda||[]).filter(x=>x.id!==me.id);
+  return q.length?`<p class="coda">${q.map(x=>'<b>'+x.name+'</b>').join(', ')} ${
+    q.length>1?'aspettano':'aspetta'} il prossimo giro</p>`:'';
+};
 
 /* ================= animazioni ================= */
 const RM=matchMedia('(prefers-reduced-motion:reduce)').matches;
@@ -992,6 +1165,70 @@ function salePunteggio(el,da,a){
   };
   requestAnimationFrame(passo);
 }
+/* --- le carte prese a scopa ---
+   A briscola la presa vola verso chi l'ha vinta (raccogli); a scopa le carte
+   sparivano e basta, al ridisegno successivo. Qui si fotografa il tavolo
+   prima di rifarlo, così le carte prese possono partire da dove stavano:
+   quali siano lo dice la differenza col tavolo nuovo, senza aggiungere
+   niente allo stato che gira in rete. */
+function fotoBoard(){
+  const m={};
+  document.querySelectorAll('.bc').forEach(el=>{
+    if(el.dataset.k) m[el.dataset.k]=el.getBoundingClientRect(); });
+  return m;
+}
+function cartaVolante(c,r){
+  const el=document.createElement('div');
+  el.className='card';
+  el.style.cssText=`left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;`
+    +`background-position:${(c.r-1)*100/9}% ${c.s*100/3}%`;
+  return el;
+}
+function volaPrese(prima,mossa,seat){
+  const piano=$('volo');
+  if(RM||!piano||!prima) return;
+  const restano=S.board.map(chiave);
+  const bersaglio=seat===mySeat?(rectOf('.hand')||rectOf('.scores')):rectOf('.opp[data-seat="'+seat+'"]');
+  if(!bersaglio) return;
+  const b=centro(bersaglio);
+  const parti=Object.keys(prima).filter(k=>restano.indexOf(k)<0)
+    .map(k=>({r:prima[k],c:{s:+k.split(':')[0],r:+k.split(':')[1]}}));
+  // e con loro la carta appena calata, che a scopa non passa mai dal tavolo
+  const daMe=seat===mySeat&&daDove;
+  parti.push({r:daMe||rectOf('.opp[data-seat="'+seat+'"]'),c:mossa.c});
+  daDove=null;
+  parti.forEach((x,i)=>{
+    if(!x.r||!x.r.width) return;
+    const el=cartaVolante(x.c,x.r); piano.appendChild(el);
+    const a=centro(x.r), dx=b.x-a.x, dy=b.y-a.y;
+    el.animate([{transform:'none',opacity:1},
+      {transform:`translate(${dx*.22}px,${dy*.16-14}px) rotate(${i%2?7:-7}deg) scale(1.06)`,opacity:1,offset:.3},
+      {transform:`translate(${dx}px,${dy}px) rotate(${i%2?30:-30}deg) scale(.26)`,opacity:0}],
+      {duration:540,delay:i*45,easing:'cubic-bezier(.5,0,.7,.25)',fill:'forwards'}).onfinish=()=>el.remove();
+  });
+}
+/* Le carte le arrivavano addosso e la pastiglia restava ferma: il gesto
+   partiva e non atterrava da nessuna parte. */
+function incassa(seat){
+  if(RM) return;
+  const el=document.querySelector('.opp[data-seat="'+seat+'"]');
+  if(!el) return;
+  el.classList.remove('incassa'); void el.offsetWidth; el.classList.add('incassa');
+}
+/* La scopa era una parola dentro una frase, e spariva allo stato dopo. Sta
+   in #volo, che il ridisegno di #app non tocca. */
+function timbroScopa(mia,nome){
+  const piano=$('volo'); if(!piano) return;
+  const el=document.createElement('div');
+  el.className='timbro';
+  // #volo e' fisso su tutto lo schermo: senza questo il timbro si centrerebbe
+  // sulla pagina invece che sul tavolo, cioe' sotto, sopra la barra del turno
+  const r=rectOf('.felt');
+  if(r) el.style.cssText=`left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px`;
+  el.innerHTML='<span>Scopa!</span>'+(mia?'':'<small>di '+nome+'</small>');
+  piano.appendChild(el);
+  setTimeout(()=>el.remove(),1500);
+}
 const rectOf=s=>{const e=document.querySelector(s);return e?e.getBoundingClientRect():null;};
 const centro=r=>({x:r.left+r.width/2,y:r.top+r.height/2});
 
@@ -1076,6 +1313,7 @@ function paint(err){
 }
 function disegna(err){
   clearTimeout(attesaInvio);
+  presenzaDiff();
   if(!S && !code) return lobby(err);
   if(!S) return attesaConn(err);
   if(S.phase==='attesa') return stanza();
@@ -1090,14 +1328,85 @@ const temiSezione=()=>`<h3>Aspetto</h3>
   <p style="margin:0 0 8px">Il mazzo e i colori. È una scelta tua: al tavolo ognuno vede il suo.</p>
   <div class="seg">${Object.keys(TEMI).map(k=>
     `<button data-tema="${k}" aria-pressed="${k===tema}">${TEMI[k].nome}</button>`).join('')}</div>`;
-function legaTemi(){ document.querySelectorAll('[data-tema]').forEach(b=>
+/* Solo i bottoni: `data-tema` ce l'ha anche <html>, perche' e' li' che
+   applicaTema scrive il tema scelto. Senza `button` il selettore prendeva la
+   radice e le attaccava un onclick, cioe' un tocco qualsiasi della pagina
+   ri-applicava il tema: suono, vibrazione e ridisegno di tutto a ogni tocco. */
+function legaTemi(){ document.querySelectorAll('button[data-tema]').forEach(b=>
   b.onclick=()=>applicaTema(b.dataset.tema,true)); }
 const conn=()=>mazzierePerso()
   ? `<span class="dot"></span><span>Il mazziere non risponde</span>`
   : `<span class="dot ${connected?'on':''}"></span><span>${connected?'In linea':'Ricollego…'}</span>`;
 const mutoBtn=()=>`<button id="mu" title="${muto?'Riattiva i suoni':'Silenzia'}" aria-label="${
   muto?'Riattiva i suoni':'Silenzia'}">${muto?ICO.audioNo:ICO.audioSi}</button>`;
-function legaMuto(){ const b=$('mu'); if(b) b.onclick=()=>{muto=!muto;localStorage.bt_mute=muto?'1':'0';if(!muto)SND.entra();paint();}; }
+function legaMuto(){ const b=$('mu'); if(b) b.onclick=()=>{
+  muto=!muto; localStorage.bt_mute=muto?'1':'0';
+  if(!muto){ SND.entra(); vibra(12); }
+  avvisa(muto?'Suoni e vibrazione spenti':'Suoni accesi',{ico:muto?ICO.audioNo:ICO.audioSi});
+  paint(); }; }
+/* Il mazziere che esce non esce e basta: pubblica il retained vuoto e smonta
+   il tavolo di tutti. «Chiudi la mano», che è molto meno, la conferma
+   chiedeva da sempre. */
+let esciChiesto=false, esciTorna=null;
+function legaEsci(){
+  const b=$('x'); if(!b) return;
+  if(esciChiesto) b.classList.add('chiede');
+  b.onclick=()=>{
+    if(!isHost||!S) return esci();
+    if(!esciChiesto){
+      esciChiesto=true; b.classList.add('chiede'); vibra(16); SND.nega();
+      avvisa('Esci e il tavolo si smonta per tutti. Tocca ancora per confermare.',{ko:1,ms:4200});
+      clearTimeout(esciTorna);
+      esciTorna=setTimeout(()=>{ esciChiesto=false;
+        const y=$('x'); if(y) y.classList.remove('chiede'); },4200);
+      return;
+    }
+    clearTimeout(esciTorna); esciChiesto=false; esci();
+  };
+}
+/* Il link si manda, non si copia: al tavolo finisce su WhatsApp. Dove c'è la
+   condivisione di sistema si usa quella, e il copia resta come riserva. */
+const siCondivide=()=>!!(navigator.share&&matchMedia('(pointer:coarse)').matches);
+let invitoFatto=0, invitoSpunta=0, invitoTorna=null;
+async function mandaInvito(){
+  const url=linkTavolo();
+  if(siCondivide()){
+    try{ await navigator.share({title:'Briscola al tavolo',
+      text:'Vieni al tavolo '+S.code,url});
+      vibra(12); SND.ok(); return; }
+    catch(e){ if(e&&e.name==='AbortError') return; }
+  }
+  if(await copiaTesto(url)){
+    /* La conferma sta in un flag e non nel nodo: fra il tocco e la risposta
+       degli appunti può arrivare un messaggio di stato, e la vista si rifà
+       da capo. Scrivendo sul bottone si scriveva su un nodo già staccato. */
+    invitoFatto=Date.now()+1700; vibra(12); SND.ok();
+    paint(); // la conferma la dà il bottone: un avviso direbbe la stessa cosa
+    clearTimeout(invitoTorna);
+    invitoTorna=setTimeout(()=>{ invitoFatto=0; paint(); },1700);
+  } else nega($('link'),'Non riesco a copiare: detta le quattro lettere, <b>'+S.code+'</b>');
+}
+async function copiaCodice(el){
+  if(await copiaTesto(S.code)){
+    vibra(10); SND.ok();
+    if(el&&!RM){ el.classList.remove('lampo'); void el.offsetWidth; el.classList.add('lampo'); }
+    avvisa('Codice <b>'+S.code+'</b> copiato',{ico:ICO.ok});
+  } else nega(el,'Non riesco a copiare: sono quattro lettere, <b>'+S.code+'</b>');
+}
+function qrGrande(){
+  if(!S) return;
+  const lato=Math.max(150,Math.min(innerWidth-96,innerHeight-220,380));
+  $('ov').innerHTML=`<div class="qrfull" id="qf"><div class="qrbox">
+    <div id="qrbig"></div><p class="cod">${S.code}</p>
+    <p class="via">Inquadra, o detta le quattro lettere</p></div></div>`;
+  const cs=getComputedStyle(document.documentElement);
+  try{ if(window.QRCode) new QRCode($('qrbig'),{text:linkTavolo(),width:lato,height:lato,
+    colorDark:(cs.getPropertyValue('--qr-scuro')||'').trim()||'#102A22',
+    colorLight:(cs.getPropertyValue('--qr-chiaro')||'').trim()||'#F3E7CD',
+    correctLevel:QRCode.CorrectLevel.M}); }catch(e){}
+  pannelloAperto=null;
+  $('qf').onclick=chiudi;
+}
 
 function invito(cod,err){
   $('app').innerHTML=`
@@ -1170,12 +1479,21 @@ function attesaConn(err){
 
 function stanza(){
   const k=S.seats.length, sq=S.teams&&k%2===0&&k>=4, liberi=6-k;
+  /* Perché non si può dare: prima era un `disabled`, che non riceve nemmeno
+     il tocco e quindi non spiega niente a chi ci prova. */
+  const noVia = k<2 ? 'Fagli inquadrare il codice, o dettagli le quattro lettere'
+    : (S.game==='scopa'&&k===5) ? 'A scopa in cinque i conti non tornano: cambiate gioco, o numero'
+    : '';
   const idPosti=S.seats.map(x=>x.id), nuoviPosti=novita(idPosti,visto.posti);
   visto={mano:-1,carte:[],board:[],posti:idPosti}; scelta=null;
+  // la spunta si disegna una volta sola: un ridisegno qualsiasi la rifarebbe
+  const invitoOk=invitoFatto>Date.now(), invitoNuovo=invitoFatto!==invitoSpunta;
+  invitoSpunta=invitoOk?invitoFatto:0;
   $('app').innerHTML=`
   <div class="topbar">${conn()}<span class="sp"></span>${mutoBtn()}<button id="rg" title="Regole" aria-label="Regole">${ICO.aiuto}</button><button id="x">Esci</button></div>
-  <div class="roomcode">${S.code}</div>
-  <div id="qr"></div>
+  <button class="roomcode" id="cod" title="Tocca per copiare il codice"
+    aria-label="Codice del tavolo ${S.code.split('').join(' ')}, tocca per copiarlo">${S.code}</button>
+  <button id="qrtap" aria-label="Ingrandisci il codice QR"><div id="qr"></div></button>
   <p class="lede" style="font-size:14px">Fai inquadrare il codice, o detta le quattro lettere.</p>
   <ul class="seatlist">${S.seats.map((s,i)=>`<li class="${s.id===me.id?'me':''}${nuoviPosti[i]?' nuovo':''}"><span class="n">${i+1}</span>${s.name}${s.id===me.id?' · tu':''}${S.albo&&S.albo[s.id]?`<span class="team">${S.albo[s.id]} man${S.albo[s.id]>1?'i':'o'} vint${S.albo[s.id]>1?'e':'a'}</span>`:(sq?`<span class="team">Squadra ${i%2?'B':'A'}</span>`:'')}</li>`).join('')
     +(liberi>0?`<li class="empty"><span class="n">+</span>${liberi} post${liberi>1?'i':'o'} liber${liberi>1?'i':'o'}</li>`:'')}</ul>
@@ -1186,23 +1504,27 @@ function stanza(){
     ${k===4||k===6?`<div class="seg" style="margin-top:8px" id="sq">
       <button data-v="1" aria-pressed="${S.teams?'true':'false'}">A squadre</button>
       <button data-v="0" aria-pressed="${S.teams?'false':'true'}">Ognuno per sé</button></div>`:''}
-    <button class="btn" id="via" ${k<2||(S.game==='scopa'&&k===5)?'disabled':''}>${
+    <button class="btn${noVia?' spento':''}" id="via" ${noVia?'aria-disabled="true"':''}>${
       k<2?'Serve almeno un altro giocatore':
       (S.game==='scopa'&&k===5)?'A scopa non si gioca in cinque':
       (S.mano?'Nuova mano in '+k:'Distribuisci le carte in '+k)}</button>
-    <button class="btn ghost" id="link">Copia il link</button>`
+    <button class="btn ghost${invitoOk?' fatto':''}${invitoOk&&invitoNuovo?' appena':''}" id="link">${
+      invitoOk?ICO.ok+'<span>Link copiato</span>'
+             :(siCondivide()?'Manda l\'invito':'Copia il link')}</button>`
   :`<p class="hint" style="text-align:center;margin-top:16px">Siete in ${k}. Le carte le dà chi ha aperto il tavolo.</p>`}
   <p class="hint">${S.game==='scopa'
     ? 'A scopa si gioca in due, tre, quattro o sei. '
     : (k===3?'In tre si toglie un due dal mazzo: i punti restano 120. ':'')+(k===6?'In sei si tolgono i quattro due: i punti restano 120. ':'')
   }Chi ha aperto il tavolo fa da mazziere e deve tenere la pagina aperta.</p>`;
-  $('x').onclick=esci; $('rg').onclick=regole; legaMuto();
-  if($('via'))$('via').onclick=()=>send({t:'start'});
+  legaEsci(); $('rg').onclick=regole; legaMuto();
+  if($('cod'))$('cod').onclick=()=>copiaCodice($('cod'));
+  if($('qrtap'))$('qrtap').onclick=qrGrande;
+  if($('via'))$('via').onclick=()=>{
+    if(noVia) return nega($('via'),noVia);
+    vibra(16); send({t:'start'}); };
   if($('sq'))document.querySelectorAll('#sq button').forEach(b=>b.onclick=()=>send({t:'squadre',v:+b.dataset.v}));
   if($('gm'))document.querySelectorAll('#gm button').forEach(b=>b.onclick=()=>send({t:'gioco',v:b.dataset.v}));
-  if($('link'))$('link').onclick=()=>{ navigator.clipboard?.writeText(linkTavolo());
-    const b=$('link'); b.textContent='Link copiato'; vibra(12);
-    setTimeout(()=>{ if($('link')===b) b.textContent='Copia il link'; },1800); };
+  if($('link'))$('link').onclick=mandaInvito;
   const qs=innerHeight<620?112:(innerHeight<700?134:172);
   const cs=getComputedStyle(document.documentElement);
   const qScuro=(cs.getPropertyValue('--qr-scuro')||'').trim()||'#102A22';
@@ -1272,6 +1594,7 @@ function tavolo(){
     <span>${nomeDi(i)}${S.teams&&groupOf(i,S)===gm?', con te':''}</span>
     ${S.tr&&S.tr[i]?`<b>${S.tr[i]}</b>`:''}
     <span class="mini">${Array(((S.hands&&S.hands[i])||[]).length).fill('<i></i>').join('')}</span></span>`).join('')}</div>
+  ${codaBar()}
   <div class="felt${n>=4?' folto':''}">
     <div class="deckbox"><span class="cnt">${S.deck.length}</span>
       ${S.deck.length>1?'<span class="backcard"></span>':''}
@@ -1285,10 +1608,11 @@ function tavolo(){
       <div class="lbl">${eti(g)}</div><div class="val">${S.points[g]}</div></div>`).join('')}</div>
   ${spettatore?attesaPosto():fin?(isHost?'<button class="btn" id="ri">Un\'altra mano</button><button class="btn ghost" id="tn">Torna al tavolo</button>'
                :'<p class="hint" style="text-align:center">Il mazziere può dare di nuovo.</p>')
-       :`<div class="hand${dando?' dando':''}">${hand.map((c,i)=>`<button class="slot ${turn===mySeat?'playable':''}${carteNuove[i]?' nuova':''}" data-i="${i}"
-          ${turn===mySeat&&S.table.length<n?'':'disabled'}>${c.s===S.trumpSuit?'<span class="brisc-flag"></span>':''}${cardHTML(c)}<span class="tasto">${i+1}</span></button>`).join('')}</div>
+       :`<div class="hand${dando?' dando':''}">${hand.map((c,i)=>`<button class="slot ${
+          turn===mySeat&&S.table.length<n?'playable':'muta'}${carteNuove[i]?' nuova':''}" data-i="${i}"
+          ${turn===mySeat&&S.table.length<n?'':'aria-disabled="true"'}>${c.s===S.trumpSuit?'<span class="brisc-flag"></span>':''}${cardHTML(c)}<span class="tasto">${i+1}</span></button>`).join('')}</div>
         <p class="tastiera">Tasti 1 2 3 per calare, M per i suoni, ? per le regole</p>`}`;
-  $('x').onclick=esci; $('rg').onclick=regole; $('cl').onclick=classifica; legaMuto(); legaSciogli();
+  legaEsci(); $('rg').onclick=regole; $('cl').onclick=classifica; legaMuto(); legaSciogli();
   if($('ri'))$('ri').onclick=()=>send({t:'rematch'});
   if($('tn'))$('tn').onclick=()=>send({t:'stanza'});
   legaCarte(b=>{
@@ -1316,6 +1640,7 @@ function tavolo(){
     contaPresa(rit);
     setTimeout(()=>battito(best),rit.battuta);
     setTimeout(()=>raccogli(best),rit.raccolta);
+    setTimeout(()=>incassa(best),rit.raccolta+400);
     if(rit.punti>=20) setTimeout(scossa,rit.battuta);
   }
   const pStr=S.points.join();
@@ -1379,6 +1704,15 @@ function tavoloScopa(){
   }
   const eti=g=>S.teams?(g===gm?'La tua squadra':'Altra squadra'):(g===mySeat?'Tu':nomeDi(g));
 
+  /* La mossa si riconosce dal contenuto, non dall'oggetto: ogni messaggio di
+     stato ne ricrea uno nuovo, e confrontando i riferimenti la presa si
+     risuonava a ogni ridisegno, anche quando la mossa era la stessa. */
+  const chiaveMossa=S.mossa?[S.mano,S.mossa.seat,S.mossa.c.s,S.mossa.c.r,
+    S.mossa.presi,S.mossa.scopa?1:0].join(':'):'';
+  const nuovaMossa=!!S.mossa&&chiaveMossa!==anim.mossa;
+  // il tavolo com'era un attimo fa: da lì partono le carte prese
+  const primaBoard=(nuovaMossa&&S.mossa.presi&&!RM)?fotoBoard():null;
+
   $('app').innerHTML=`
   <div class="topbar">${conn()}<span class="sp"></span>
     <span class="brisc">Scopa</span>
@@ -1388,11 +1722,12 @@ function tavoloScopa(){
     <span class="att" aria-hidden="true"></span>
     <span>${nomeDi(i)}${S.teams&&groupOf(i,S)===gm?', con te':''}</span>
     <b>${(S.taken[i]||[]).length}</b>${S.scope[i]?`<span style="color:var(--oro)">${'★'.repeat(Math.min(S.scope[i],3))}</span>`:''}</span>`).join('')}</div>
+  ${codaBar()}
   <div class="felt">
     <div class="deckbox"><span class="cnt">${S.deck.length}</span>
       ${S.deck.length?'<span class="backcard"></span>':'<span style="font-size:11px;color:var(--dim)">mazzo finito</span>'}</div>
     <div class="board" id="bd">${S.board.length
-      ? S.board.map((c,i)=>`<span class="bc${inSel.includes(i)?' sel':''}${boardNuove[i]?' nuova':''}" data-b="${i}">${cardHTML(c)}</span>`).join('')
+      ? S.board.map((c,i)=>`<span class="bc${inSel.includes(i)?' sel':''}${boardNuove[i]?' nuova':''}" data-b="${i}" data-k="${chiave(c)}">${cardHTML(c)}</span>`).join('')
       : '<span class="vuoto">tavolo pulito</span>'}</div>
     ${scelta?barraScelta(hand[scelta.i]):barra}
     ${!fin&&S.mossa?`<p class="presi">${S.mossa.seat===mySeat?'Hai':nomeDi(S.mossa.seat)+' ha'} ${S.mossa.presi?`preso ${S.mossa.presi} cart${S.mossa.presi>1?'e':'a'}`:'lasciato '+nomeCarta(S.mossa.c)}</p>`:''}
@@ -1402,11 +1737,11 @@ function tavoloScopa(){
       <div class="lbl">${eti(g)}</div><div class="val">${S.points[g]}</div></div>`).join('')}</div>
   ${spettatore?attesaPosto():fin?(isHost?'<button class="btn" id="ri">Un\'altra mano</button><button class="btn ghost" id="tn">Torna al tavolo</button>'
                :'<p class="hint" style="text-align:center">Il mazziere può dare di nuovo.</p>')
-       :`<div class="hand${dando?' dando':''}">${hand.map((c,i)=>`<button class="slot ${turn===mySeat?'playable':''}${
+       :`<div class="hand${dando?' dando':''}">${hand.map((c,i)=>`<button class="slot ${turn===mySeat?'playable':'muta'}${
           carteNuove[i]?' nuova':''}${scelta&&scelta.i===i?' scelta':''}" data-i="${i}"
-          ${turn===mySeat?'':'disabled'}>${cardHTML(c)}<span class="tasto">${i+1}</span></button>`).join('')}</div>
+          ${turn===mySeat?'':'aria-disabled="true"'}>${cardHTML(c)}<span class="tasto">${i+1}</span></button>`).join('')}</div>
         <p class="tastiera">Tasti 1 2 3 per calare, M per i suoni, ? per le regole</p>`}`;
-  $('x').onclick=esci; $('rg').onclick=regole; $('cl').onclick=classifica; legaMuto(); legaSciogli();
+  legaEsci(); $('rg').onclick=regole; $('cl').onclick=classifica; legaMuto(); legaSciogli();
   if($('ri'))$('ri').onclick=()=>send({t:'rematch'});
   if($('tn'))$('tn').onclick=()=>send({t:'stanza'});
   legaCarte(b=>{
@@ -1427,17 +1762,20 @@ function tavoloScopa(){
   // giostra
   const nuovaMano=S.mano!==anim.mano;
   if(dando) requestAnimationFrame(()=>distribuisci(S,mySeat,4));
-  if(S.mossa&&!nuovaMano&&S.mossa!==anim.mossa){
+  if(nuovaMossa&&!nuovaMano){
     const mia=S.mossa.seat===mySeat;
     if(S.mossa.presi){
       (mia?SND.presaMia:SND.presa)(S.mossa.presi>2?12:0);
       vibra(mia?[0,20,45,30]:16);
-      if(S.mossa.scopa){ scossa(); SND.finePro(); vibra([0,25,60,25,60,35]); }
+      volaPrese(primaBoard,S.mossa,S.mossa.seat);
+      setTimeout(()=>incassa(S.mossa.seat),440);
+      if(S.mossa.scopa){ scossa(); SND.finePro(); vibra([0,25,60,25,60,35]);
+        timbroScopa(mia,nomeDi(S.mossa.seat)); }
     } else { SND.giocata(S.board.length-1); vibra(9);
       requestAnimationFrame(()=>{
         const b=[...document.querySelectorAll('.bc')].pop(); if(b) lanciaSu(b,S.mossa.seat); }); }
   }
-  anim={len:0,mano:S.mano,punti:S.points.join(),mossa:S.mossa};
+  anim={len:0,mano:S.mano,punti:S.points.join(),mossa:chiaveMossa};
 }
 /* La carta si alza al pointerdown, non al click: su telefono :active non è
    affidabile e la risposta arrivava dopo il tocco invece che durante. */
@@ -1480,8 +1818,19 @@ function legaCarte(alTocco){
     });
     ['pointerup','pointercancel','pointerleave'].forEach(e=>
       b.addEventListener(e,()=>b.classList.remove('premuta')));
-    b.onclick=()=>{ if(b.disabled) return; alTocco(b); };
+    b.onclick=()=>{ if(b.disabled) return;
+      if(b.classList.contains('muta')) return nega(b,motivoMuta());
+      alTocco(b); };
   });
+}
+/* Perché quella carta non parte. Prima il bottone era `disabled` e il tocco
+   non arrivava nemmeno: non si capiva se fosse arrivato o se l'app fosse morta. */
+function motivoMuta(){
+  if(!S) return '';
+  if(S.phase==='fine') return 'La mano è finita';
+  if(S.table&&S.table.length>=S.n) return 'Aspetta, si conta la presa';
+  if(S.turn>=0&&S.turn!==mySeat) return 'Aspetta, tocca a <b>'+nomeDi(S.turn)+'</b>';
+  return 'Non è il momento';
 }
 function lanciaSu(el,seat){
   if(RM) return;
@@ -1604,6 +1953,22 @@ function installa(){
 }
 if('serviceWorker' in navigator && location.protocol==='https:')
   window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+
+/* ================= risposta al tocco =================
+   Le carte si abbassano al pointerdown perché su telefono :active non è
+   affidabile; i bottoni erano rimasti indietro, e rispondevano solo al click,
+   cioè dopo. Un ascoltatore solo, in delega, così vale anche per i bottoni
+   che le viste ricreano a ogni messaggio di stato. */
+document.addEventListener('pointerdown',e=>{
+  const b=e.target.closest?e.target.closest('button'):null;
+  if(!b||b.disabled||b.classList.contains('slot')) return;
+  b.classList.add('giu');
+  vibra(6);
+  const su=()=>{ b.classList.remove('giu');
+    removeEventListener('pointerup',su); removeEventListener('pointercancel',su); };
+  addEventListener('pointerup',su); addEventListener('pointercancel',su);
+  b.addEventListener('pointerleave',su,{once:true});
+},true);
 
 /* ================= tastiera (desktop) ================= */
 window.addEventListener('keydown',e=>{

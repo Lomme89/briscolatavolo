@@ -14,6 +14,9 @@ manifest.json       manifest PWA
 sw.js               service worker, cache del guscio
 .nojekyll           impedisce a GitHub Pages di processare i file
 icone/              icona-192, icona-512, icona-maskable-512, apple-touch-icon
+harness.js          più client jsdom con un broker MQTT finto in-process
+test2.js            partite intere di briscola e scopa, da 2 a 4
+vista.js            le stesse cose in Chromium, per quello che jsdom non vede
 ```
 
 Non c'è build, non ci sono dipendenze npm, non c'è bundler. Si modifica `index.html`
@@ -63,6 +66,10 @@ Uscendo, il mazziere pubblica un retained vuoto per smontare il tavolo.
 | `paint()` | smista alle viste, poi `suoniDiff()` |
 | `tavolo()` / `tavoloScopa()` | le due viste di gioco |
 | `lancia()` / `raccogli()` / `scossa()` | animazioni, Web Animations API |
+| `avvisa(testo)` | l'unico posto dove dire una cosa breve |
+| `nega(el, testo)` | un tocco che non può fare niente, e il perché |
+| `presenzaDiff()` | chi si è appena seduto, chi se n'è andato, chi aspetta |
+| `volaPrese()` / `timbroScopa()` | la presa e la scopa, a scopa |
 
 Le viste ricostruiscono `#app` via `innerHTML` a ogni cambio di stato. È volutamente
 grezzo e va benissimo a queste dimensioni: non introdurre un framework.
@@ -87,6 +94,54 @@ S = {
 Una carta è `{s, r}`: `s` è il seme (0 denari, 1 coppe, 2 spade, 3 bastoni), `r` va da
 1 a 10. `ripulisci()` azzera i campi della mano precedente quando si cambia gioco:
 senza, una vista parte con i resti dell'altra e si rompe.
+
+## Risposte al tocco
+
+Ogni azione deve rispondere **subito** e **dire com'è andata**. Tre pezzi
+reggono tutto il resto.
+
+`avvisa(testo, {ico, ko, ms})` scrive una pastiglia in `#toast`, che sta fuori
+da `#app` e quindi **non se ne va col ridisegno**. Ne restano al massimo tre.
+È anche l'unico punto dell'app con `aria-live`, quindi è lì che va detto
+quello che deve sentire chi non guarda lo schermo.
+
+`nega(el, testo)` è la risposta a un tocco che non può fare niente: scossetta,
+vibrazione, tono basso, avviso. Serve perché **un elemento `disabled` non
+riceve nemmeno il tocco**: chi ci prova non sa se il tocco sia arrivato o se
+l'app sia morta. Per questo il bottone che non si può premere ora porta
+`.spento` + `aria-disabled` invece di `disabled`, e le carte non giocabili
+portano `.muta` — il `disabled` vero resta solo per il fermo dopo la giocata,
+che deve davvero bloccare tutto. Se aggiungi un comando che a volte non si può
+usare, non spegnerlo con `disabled`: dagli un motivo.
+
+La classe `.giu` (il bottone premuto) la mette **un ascoltatore solo, in delega
+su `document`**, al `pointerdown` e non al click: su telefono `:active` non è
+affidabile, e le viste ricreano i bottoni a ogni messaggio di stato, quindi
+legarli uno per uno non reggerebbe. Le carte hanno il loro `.premuta`, dallo
+stesso motivo, e la delega le salta apposta.
+
+Attenzione a chi si lega addosso i `data-`: `applicaTema` scrive `data-tema`
+sulla **radice**, quindi `querySelectorAll('[data-tema]')` prende anche
+`<html>`. `legaTemi()` ci attaccava un `onclick`, e da lì in poi un tocco in
+un punto qualsiasi della pagina risaliva fino alla radice, ri-applicava il
+tema, suonava e ridisegnava tutto. Ora il selettore è `button[data-tema]`.
+Se leghi eventi per attributo, chiedi anche il tag.
+
+La conferma di un'azione **non va scritta sul nodo**: fra il tocco e la
+risposta (gli appunti sono asincroni) può arrivare un messaggio di stato e la
+vista si rifà da capo, lasciandoti in mano un bottone staccato. Sta in un
+flag che la vista consulta quando disegna — `invitoFatto`, come
+`sciogliChiesto` — e l'animazione della spunta è legata a `.appena`, se no un
+ridisegno qualsiasi la rifarebbe partire.
+
+`copiaTesto()` prova la Clipboard API e poi il campo nascosto, e **torna se ce
+l'ha fatta**: prima si scriveva «Link copiato» comunque, anche fuori da https
+dove non c'era niente da copiare. Dove esiste la condivisione di sistema
+(`siCondivide()`, cioè `navigator.share` su schermo tattile) il link si manda
+invece di copiarlo, perché è quello che si fa davvero al tavolo.
+
+L'uscita del mazziere chiede conferma a due tocchi: non esce e basta, pubblica
+il retained vuoto e **smonta il tavolo di tutti**.
 
 ## Presenza
 
@@ -218,12 +273,39 @@ alle scope.
 `vibra()` segue il tasto del muto, perché quel tasto dice "silenzia", non "silenzia solo
 l'audio".
 
+A scopa le carte prese sparivano al ridisegno. `volaPrese()` le fa volare a chi
+le ha prese, e per sapere **da dove** partono fotografa il tavolo con
+`fotoBoard()` *prima* di rifare `#app`: quali carte siano prese lo dice la
+differenza col tavolo nuovo, così non serve aggiungere niente allo stato che
+gira in rete. Insieme a loro vola la carta appena calata, che a scopa nel
+tavolo non ci passa mai. `incassa(seat)` fa reagire la pastiglia di chi le
+riceve — vale anche per la presa a briscola, che prima atterrava nel nulla.
+
+`timbroScopa()` sta in `#volo`, non nel feltro: dentro `#app` il primo messaggio
+di stato se lo porterebbe via.
+
+La mossa a scopa si riconosce da **una chiave di contenuto**, non dal
+riferimento all'oggetto: ogni messaggio ne ricrea uno nuovo, e confrontando i
+riferimenti la presa si risuonava a ogni ridisegno (per esempio quando cambiava
+solo `S.via`). Stessa idea di `chiavePresa` a briscola.
+
 ## Test
 
 `harness.js` monta più client jsdom con un broker MQTT finto in-process e li fa giocare
 davvero. `test2.js` porta a termine partite intere di briscola e scopa da 2 a 4 e verifica
 che tutte e 40 le carte siano raccolte, che i punteggi coincidano su ogni client e che non
 ci siano eccezioni.
+
+Servono due pacchetti, e non sono dipendenze del sito: `npm i jsdom
+playwright-core`. Poi `node test2.js` per le partite e `node vista.js` per la
+prova in Chromium, che tira su un server locale e guarda quello che jsdom non
+può vedere: che gli avvisi compaiano, che il codice finisca davvero negli
+appunti, che il QR si apra, e che a nessuna misura di schermo la pagina prenda
+a scrollare. Lascia gli scatti in `scatti/`.
+
+In `vista.js` ogni client sta in un **contesto suo**: due schede dello stesso
+browser condividono il `localStorage`, quindi lo stesso `bt_id`, e per il
+mazziere sono la stessa persona — il secondo non si siede e basta.
 
 **Far girare i test dopo ogni modifica al motore o alle viste.** La scopa era arrivata in
 produzione rotta proprio perché due funzioni scritte per la briscola andavano in eccezione
