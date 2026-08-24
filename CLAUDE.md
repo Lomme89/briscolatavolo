@@ -244,7 +244,7 @@ i giri che restano da giocare: quelli sono sempre questi più i tre che ognuno h
 mano.
 
 **Le proporzioni della carta cambiano col mazzo**: `--ar` vale 1.655 col napoletano,
-1.685 col piacentino e 1.733 con i due moderni. Ogni misura ricavata dall'altezza passa
+1.700 col piacentino (col taglio: senza sarebbe 1.685) e 1.733 con i due moderni. Ogni misura ricavata dall'altezza passa
 da `perAltezza()`, che la riscala di `1.517/--ar`; e i minimi e i massimi dei `clamp`
 passano da `perLato()`, che fa la stessa cosa su una misura in larghezza — sono scelti
 sulla larghezza ma quello che pesa sul tavolo è l'altezza, e con un mazzo più lungo la
@@ -268,11 +268,20 @@ le piacentine ce li hanno, e in WebP diventerebbero neri — e stampa la data UR
 incollare:
 
 ```
-python3 foglio.py cartella-delle-carte --larghezza 200 --qualita 76
+python3 foglio.py cartella-delle-carte --larghezza 200 --qualita 76 [--taglia 4]
 ```
 
 La misura della cella è 200px di larghezza per tutti: più grande non si vede la
 differenza a schermo e il file raddoppia. Lo script dice anche quanto viene `--ar`.
+
+`--taglia` toglie un anello di pixel dal bordo di ogni carta, e le piacentine ne hanno
+bisogno: si portano dietro il filo della fustella, che insieme alla cornice stampata
+dentro faceva due righe, cioè una carta dentro una carta. Con quattro pixel via il filo
+sparisce e resta la cornice, che è il bordo vero. Per la stessa ragione nel tema
+piacentino `--card-edge` è **bianco**: il bordo di `.card` gli girava attorno ancora più
+fuori, dorato, e adesso si confonde col bianco della carta. E `--r-carta` non è fisso ma
+un decimo della larghezza, così la smussatura segue l'angolo stampato a ogni misura
+invece di tagliarlo.
 
 Il mazzo napoletano è stato rifatto da capo da una serie di carte corrette: il vecchio
 foglio aveva il tre e il quattro di denari col numero di monete sbagliato e l'asso di

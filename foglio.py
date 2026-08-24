@@ -38,9 +38,16 @@ def trova(cartella, seme, valore):
                      % (SEMI[seme], valore, cartella, ', '.join(nomi)))
 
 
-def componi(cartella, larghezza):
+def componi(cartella, larghezza, taglia=0):
     carte = [[Image.open(trova(cartella, s, v)) for v in range(1, 11)] for s in range(4)]
     w, h = carte[0][0].size
+    if taglia:
+        # via un anello di pixel dal bordo: serve quando la carta si porta
+        # dietro il filo della fustella, che con la cornice stampata dentro
+        # fa due righe e sembra una carta dentro una carta
+        carte = [[im.crop((taglia, taglia, im.size[0] - taglia, im.size[1] - taglia))
+                  for im in riga] for riga in carte]
+        w, h = carte[0][0].size
     cw = larghezza
     ch = round(larghezza * h / w)
     foglio = Image.new('RGB', (cw * 10, ch * 4), (255, 255, 255))
@@ -63,10 +70,11 @@ def main():
     a.add_argument('cartella')
     a.add_argument('--larghezza', type=int, default=200, help='larghezza di una carta (default 200)')
     a.add_argument('--qualita', type=int, default=76, help='qualità WebP (default 76)')
+    a.add_argument('--taglia', type=int, default=0, help='pixel da togliere dal bordo di ogni carta')
     a.add_argument('--uscita', help='dove scrivere la data URI (default: a schermo)')
     o = a.parse_args()
 
-    foglio, cw, ch = componi(o.cartella, o.larghezza)
+    foglio, cw, ch = componi(o.cartella, o.larghezza, o.taglia)
     b = io.BytesIO()
     foglio.save(b, 'WEBP', quality=o.qualita, method=6)
     dati = b.getvalue()

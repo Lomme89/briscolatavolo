@@ -297,7 +297,8 @@ const attesa = ms => new Promise(r => setTimeout(r, ms));
       vero: document.documentElement.scrollHeight, i: innerHeight,
       ar: getComputedStyle(document.documentElement).getPropertyValue('--ar').trim()
     }));
-    ok(m.vero <= m.i + 1 && m.ar === '1.685',
+    // --ar si confronta come numero: il CSS lo ridà com'è scritto, «1.700»
+    ok(m.vero <= m.i + 1 && Math.abs(parseFloat(m.ar) - 1.7) < 0.001,
       `tavolo piacentino in 6 su ${tel[0]}: non scrolla (${m.vero} su ${m.i}, --ar ${m.ar})`);
     pagine.splice(pagine.indexOf(p), 1);
     await c.close();
