@@ -80,6 +80,13 @@ async function partita(gioco, n, errori) {
     await attesa(mosso ? 90 : 200);
   }
 
+  /* Il mazziere arriva alla fine prima degli altri: l'ultimo stato deve
+     ancora attraversare il broker. Qui non si verifica niente, si aspetta
+     solo il tempo di volo — se poi non ci arrivano davvero lo dicono i
+     controlli qui sotto, che restano quelli. */
+  const tf = Date.now();
+  while (Date.now() - tf < 5000 && !cl.every(c => (stato(c) || {}).phase === 'fine')) await attesa(60);
+
   const fin = stato(cl[0]);
   const err = [];
   if (!fin || fin.phase !== 'fine') err.push('la mano non e\' finita (mosse ' + mosses(mosse) + ')');

@@ -876,16 +876,22 @@ const ICO={
    delle due viste usa. La stanza si disegna da qui: aggiungere un gioco
    vuol dire aggiungere una riga, non ritoccare la schermata. */
 const GIOCHI={
-  briscola:  {nome:'Briscola',   titolo:'La briscola',            posti:[2,3,4,5,6], vista:'briscola'},
+  briscola:  {nome:'Briscola',   titolo:'La briscola',            posti:[2,3,4,5,6], vista:'briscola', bot:true},
   chiamata:  {nome:'Chiamata',   titolo:'La briscola chiamata',   posti:[5],         vista:'briscola'},
-  scopa:     {nome:'Scopa',      titolo:'La scopa',               posti:[2,3,4,6],   vista:'scopa'},
-  scopone:   {nome:'Scopone',    titolo:'Lo scopone scientifico', posti:[4],         vista:'scopa', sempreSquadre:true},
+  scopa:     {nome:'Scopa',      titolo:'La scopa',               posti:[2,3,4,6],   vista:'scopa', bot:true},
+  scopone:   {nome:'Scopone',    titolo:'Lo scopone scientifico', posti:[4],         vista:'scopa', sempreSquadre:true, bot:true},
   tressette: {nome:'Tressette',  titolo:'Il tressette',           posti:[2,4],       vista:'briscola', sempreSquadre:true},
   treperdere:{nome:'A perdere',  titolo:'Il tressette a perdere', posti:[2,4],       vista:'briscola', sempreSquadre:true}
 };
 const gioco=st=>GIOCHI[(st||S||{}).game]||GIOCHI.briscola;
 const vistaDi=st=>gioco(st).vista;
 const siGiocaIn=(g,k)=>GIOCHI[g].posti.indexOf(k)>=0;
+/* Che cosa sanno giocare i finti. Un gioco che non sanno, con uno di loro
+   seduto, non è «meno divertente»: è un tavolo che si ferma sul suo turno e
+   non riparte più. Quindi non si dà, e si dice perché. */
+const saGiocare=g=>!!GIOCHI[g].bot;
+const giochiDeiFinti=()=>Object.keys(GIOCHI).filter(saGiocare).map(g=>GIOCHI[g].nome)
+  .join(', ').replace(/, ([^,]*)$/,' o $1');
 /* «in 2-6» e non «in due, tre, quattro, cinque o sei»: nella tendina la riga
    è una sola e i numeri si leggono meglio da soli che scritti in lettere. */
 const postiBrevi=g=>{ const p=GIOCHI[g].posti, ult=p[p.length-1];
@@ -1205,6 +1211,10 @@ function handle(a){
   else if(a.t==='sciogli'&&S.phase==='gioco'&&a.id===me.id){ ripulisci(); }
   else if((a.t==='start'||a.t==='rematch')&&S.phase!=='gioco'&&S.seats.length>=2){
     if(!siGiocaIn(S.game,S.seats.length)) return;
+    /* Con un finto seduto a un gioco che non sa, il tavolo si fermerebbe sul
+       suo turno e non ripartirebbe: non è una partita brutta, è una partita
+       che non c'è. La vista lo dice, e qui non si dà lo stesso. */
+    if(!saGiocare(S.game)&&S.seats.some(s=>s.bot)) return;
     deal();
   }
   else if(a.t==='asta'&&S.phase==='asta'&&S.asta&&!S.asta.vinta){
@@ -1398,14 +1408,32 @@ let cadute=[];
    quello che è già caduto. Se aggiungi un gioco ai bot, aggiungi qui quello
    che gli serve, non altrove: questo è il punto in cui si decide se barano. */
 function vistaBot(seat){
+  const compagno=(S.teams&&S.n%2===0)?(seat+2)%S.n:-1;
+  const mano=(S.hands[seat]||[]).slice();
+  if(vistaDi(S)==='scopa'){
+    const inMano=Object.values(S.hands).reduce((a,h)=>a+h.length,0);
+    /* Le prese stanno un attimo scoperte davanti a tutti prima di finire nel
+       mucchietto: chi sta attento se le ricorda, e ricordarsele è esattamente
+       quello che fa `memoria`. Quello che non si è mai visto — il mazzo e le
+       mani degli altri — resta un mucchio solo, che è come lo vede uno. */
+    const presi=Array.from({length:nGroups(S)},(_,g)=>
+      S.taken.reduce((a,t,s)=>groupOf(s,S)===g?a.concat(t):a,[]));
+    return {
+      seat, n:S.n, compagno, mano, gruppo:groupOf(seat,S),
+      board:S.board.slice(), mazzo:S.deck.length, presi,
+      /* Sull'ultima carta della mano la scopa non si fa, e chi prende si
+         porta via anche quello che resta in tavola: le due cose insieme
+         cambiano quale carta conviene calare. */
+      ultima:!S.deck.length&&inMano===1,
+      visti:presi.reduce((a,x)=>a.concat(x),[]).concat(S.board,mano)
+    };
+  }
   return {
-    seat, n:S.n,
-    mano:(S.hands[seat]||[]).slice(),
+    seat, n:S.n, compagno, mano,
     tavolo:(S.table||[]).map(p=>({seat:p.seat,c:p.c})),
     briscola:S.trumpSuit,
     scoperta:(S.trump&&S.deck.length)?S.trump:null,
     mazzo:S.deck.length,
-    compagno:(S.teams&&S.n%2===0)?(seat+2)%S.n:-1,
     cadute:cadute.slice()
   };
 }
@@ -1545,6 +1573,82 @@ function sceltaBriscola(v,car){
   return {i:voti[k].i,durezza};
 }
 
+/* ---- la scopa, e con lei lo scopone ----
+   Qui non c'è una carta da scegliere ma una mossa: quale carta e, se le
+   prese possibili sono più d'una, quale presa. Il voto è la somma di
+   quello che porta via e di quello che lascia in tavola. */
+const DEN=c=>c.s===0;
+const SETTEBELLO=c=>c.s===0&&c.r===7;
+/* Quanto migliora la primiera del mio gruppo: conta solo la carta più alta
+   per seme, quindi il terzo sette dello stesso seme non vale niente. */
+function guadagnoPrim(mie,nostri){
+  const ora=[0,0,0,0];
+  nostri.forEach(c=>{ if(PRIM[c.r]>ora[c.s]) ora[c.s]=PRIM[c.r]; });
+  const dopo=ora.slice();
+  mie.forEach(c=>{ if(PRIM[c.r]>dopo[c.s]) dopo[c.s]=PRIM[c.r]; });
+  return dopo.reduce((a,x,s)=>a+x-ora[s],0);
+}
+/* Quello che lascio in tavola. Se la somma di tutto quello che resta sta
+   fra uno e dieci, chi viene dopo con quella carta si porta via il tavolo:
+   è l'unico modo di regalare una scopa, ed è quello che si regala sempre. */
+function rischioScopa(resto,v,fuori,car){
+  if(!resto.length||v.ultima) return 0;
+  const som=resto.reduce((a,c)=>a+c.r,0);
+  if(som<1||som>10) return 0;
+  const paura=1.15-car.rischio;
+  if(!fuori) return 22*paura;
+  return (9+fuori.filter(c=>c.r===som).length*13)*paura;
+}
+function sceltaScopa(v,car){
+  const ricorda=Math.random()<car.memoria;
+  let fuori=null;
+  if(ricorda){
+    const via={}; v.visti.forEach(c=>{ via[c.s*100+c.r]=1; });
+    fuori=[];
+    for(let s=0;s<4;s++) for(let n=1;n<=10;n++) if(!via[s*100+n]) fuori.push({s,r:n});
+  }
+  const nostri=v.presi[v.gruppo]||[];
+  const mosse=[];
+  v.mano.forEach((c,i)=>{
+    const opts=prese(v.board,c.r);
+    if(opts.length) opts.forEach((t,o)=>{
+      const presi=t.idx.map(k=>v.board[k]);
+      const resto=v.board.filter((_,k)=>t.idx.indexOf(k)<0);
+      const mie=presi.concat([c]);
+      let p=14+presi.length*7;                       // le carte sono un punto
+      p+=mie.filter(DEN).length*9;                   // i denari un altro
+      if(mie.some(SETTEBELLO)) p+=60;                // e il settebello da solo
+      p+=guadagnoPrim(mie,nostri)*1.2;
+      if(!resto.length&&!v.ultima) p+=70;            // scopa
+      if(!v.mazzo) p+=7;    // a mazzo finito chi prende si tiene anche il resto
+      p-=rischioScopa(resto,v,fuori,car);
+      mosse.push({i,o,p});
+    });
+    else {
+      /* Non prendo: la carta resta lì e la piglia qualcun altro. Si lascia
+         quella che pesa meno — mai un denaro, mai un sette, e il settebello
+         mai e poi mai. */
+      const resto=v.board.concat([c]);
+      let p=-10-c.r*.4;
+      if(DEN(c)) p-=14;
+      if(c.r===7) p-=16;
+      if(SETTEBELLO(c)) p-=60;
+      if(c.r===6||c.r===1) p-=6;
+      /* E si lascia un valore che in giro ce n'è poco: uno che ha contato
+         sa che i tre sono già usciti tutti e che il tre lì può restarci. */
+      if(fuori) p-=fuori.filter(x=>x.r===c.r).length*2.5;
+      p-=rischioScopa(resto,v,fuori,car);
+      mosse.push({i,o:0,p});
+    }
+  });
+  mosse.sort((a,b)=>b.p-a.p);
+  const durezza=mosse.length<2?0:Math.max(0,Math.min(1,1-(mosse[0].p-mosse[1].p)/45));
+  if(mosse.length>1&&Math.random()<(car.caos||0))
+    { const q=mosse[Math.random()*mosse.length|0]; return {i:q.i,o:q.o,durezza:0}; }
+  const k=(mosse.length>1&&Math.random()<car.errore*(.4+.6*durezza))?1:0;
+  return {i:mosse[k].i,o:mosse[k].o,durezza};
+}
+
 /* Il turno di un finto. Si programma una volta sola per mossa: `paint()`
    gira a ogni cosa che succede — un ridisegno per il muto, uno per il
    resize — e senza la chiave lo stesso bot si sarebbe prenotato dieci
@@ -1552,22 +1656,29 @@ function sceltaBriscola(v,car){
 let botQuando=null, botChiave='';
 function robot(){
   if(!isHost||!S||S.phase!=='gioco'||resolving) return fermaBot();
-  if(vistaDi(S)==='scopa'||daColore(S)||!S.table||S.table.length>=S.n) return fermaBot();
+  const sc=vistaDi(S)==='scopa';
+  if(sc?!S.board:(daColore(S)||!S.table||S.table.length>=S.n)) return fermaBot();
   const seat=S.turn; if(seat<0) return fermaBot();
   const car=botDi(seat); if(!car) return fermaBot();
   const mano=(S.hands&&S.hands[seat])||[]; if(!mano.length) return fermaBot();
   /* La prenotazione si tiene: se la chiave è la stessa il bot sta già
      pensando, e rifargli partire il timer a ogni ridisegno vorrebbe dire
      che uno che gioca col tasto del muto non lo fa calare mai. */
-  const chiave=[S.mano,seat,S.table.length,mano.length].join(':');
+  const chiave=[S.mano,seat,mano.length,sc?S.board.length+'/'+S.deck.length:S.table.length].join(':');
   if(chiave===botChiave&&botQuando) return;
   fermaBot(); botChiave=chiave;
-  const scelta=sceltaBriscola(vistaBot(seat),car);
+  const v=vistaBot(seat);
+  const scelta=sc?sceltaScopa(v,car):sceltaBriscola(v,car);
+  let ms=pensa(car,scelta.durezza);
+  /* A briscola la presa se la prende `autoResolve()`, che aspetta lui. A
+     scopa no: lo stato cambia subito, e se il prossimo cala mentre le carte
+     stanno ancora volando via non si vede più chi ha preso che cosa. */
+  if(sc&&S.mossa) ms+=(S.mossa.presi?680:0)+(S.mossa.scopa?520:0);
   botQuando=setTimeout(()=>{
     botQuando=null;
     if(botChiave!==chiave||!S||S.turn!==seat) return;
-    handle({t:'play',i:scelta.i,id:S.seats[seat].id});
-  },pensa(car,scelta.durezza));
+    handle({t:'play',i:scelta.i,o:scelta.o,id:S.seats[seat].id});
+  },ms);
 }
 function fermaBot(){ if(botQuando) clearTimeout(botQuando); botQuando=null; botChiave=''; }
 
@@ -2293,8 +2404,10 @@ function stanza(){
   /* Perché non si può dare: prima era un `disabled`, che non riceve nemmeno
      il tocco e quindi non spiega niente a chi ci prova. */
   const gi=gioco(S);
-  const noVia = k<2 ? 'Fagli inquadrare il codice, o dettagli le quattro lettere'
+  const finti=S.seats.filter(s=>s.bot).length;
+  const noVia = k<2 ? (solo?'Aggiungi almeno un giocatore finto':'Fagli inquadrare il codice, o dettagli le quattro lettere')
     : !siGiocaIn(S.game,k) ? gi.nome+' si gioca in '+elenco(gi.posti)+', non in '+k
+    : finti&&!saGiocare(S.game) ? 'I finti sanno solo '+giochiDeiFinti()
     : '';
   const idPosti=S.seats.map(x=>x.id), nuoviPosti=novita(idPosti,visto.posti);
   visto={mano:-1,carte:[],board:[],posti:idPosti}; scelta=null;
@@ -2333,8 +2446,9 @@ function stanza(){
         <option value="0"${S.teams?'':' selected'}>Ognuno per sé</option></select></label>`:''}
     </div>
     <button class="btn${noVia?' spento':''}" id="via" ${noVia?'aria-disabled="true"':''}>${
-      k<2?'Serve almeno un altro giocatore':
+      k<2?(solo?'Serve almeno un finto con cui giocare':'Serve almeno un altro giocatore'):
       !siGiocaIn(S.game,k)?gi.nome+' non si gioca in '+k:
+      finti&&!saGiocare(S.game)?'I finti non sanno '+gi.nome.toLowerCase():
       (S.mano?'Nuova mano in '+k:'Distribuisci le carte in '+k)}</button>
     ${solo?'':`<button class="btn ghost${invitoOk?' fatto':''}${invitoOk&&invitoNuovo?' appena':''}" id="link">${
       invitoOk?ICO.ok+'<span>Link copiato</span>'
@@ -2357,6 +2471,8 @@ function stanza(){
      dirlo subito, che è la regola di tutto il resto dell'app. */
   if($('gm'))$('gm').onchange=e=>{ const v=e.target.value; vibra(10);
     if(!siGiocaIn(v,k)) avvisa(GIOCHI[v].nome+' si gioca in '+elenco(GIOCHI[v].posti)+', e siete in '+k,{ko:true});
+    else if(finti&&!saGiocare(v)) avvisa('I finti non sanno ancora '+GIOCHI[v].nome.toLowerCase()
+      +': sanno '+giochiDeiFinti()+'.',{ko:true,ms:4200});
     send({t:'gioco',v}); };
   if($('link'))$('link').onclick=mandaInvito;
   if($('piu'))$('piu').onclick=()=>{ vibra(12); SND.arriva&&SND.arriva(); send({t:'piubot'}); };

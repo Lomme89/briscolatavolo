@@ -82,7 +82,7 @@ avvio. Icone e manifest, che cambiano di rado, restano cache-first.
 | `avvisa(testo)` | l'unico posto dove dire una cosa breve |
 | `nega(el, testo)` | un tocco che non può fare niente, e il perché |
 | `vistaBot(seat)` | l'unica finestra di un finto sul tavolo: solo quello che vedrebbe |
-| `sceltaBriscola(v,car)` | che carta cala un finto, e quanto è dura la scelta |
+| `sceltaBriscola(v,car)` / `sceltaScopa(v,car)` | che mossa fa un finto, e quanto è dura la scelta |
 | `pensa(car,durezza)` | quanto ci mette a calarla |
 | `robot()` | prenota il turno del finto, una volta sola per mossa |
 | `presenzaDiff()` | chi si è appena seduto, chi se n'è andato, chi aspetta |
@@ -104,17 +104,20 @@ pezzo di motore che gli serve:
 
 ```js
 const GIOCHI={
-  briscola:  {nome:'Briscola', titolo:'La briscola',          posti:[2,3,4,5,6], vista:'briscola'},
+  briscola:  {nome:'Briscola', titolo:'La briscola',          posti:[2,3,4,5,6], vista:'briscola', bot:true},
   chiamata:  {nome:'Chiamata', titolo:'La briscola chiamata', posti:[5],         vista:'briscola'},
-  scopa:     {nome:'Scopa',    titolo:'La scopa',             posti:[2,3,4,6],   vista:'scopa'},
-  scopone:   {nome:'Scopone',  titolo:'Lo scopone scientifico',posti:[4],        vista:'scopa', sempreSquadre:true},
+  scopa:     {nome:'Scopa',    titolo:'La scopa',             posti:[2,3,4,6],   vista:'scopa', bot:true},
+  scopone:   {nome:'Scopone',  titolo:'Lo scopone scientifico',posti:[4],        vista:'scopa', sempreSquadre:true, bot:true},
   tressette: {nome:'Tressette',titolo:'Il tressette',         posti:[2,4],       vista:'briscola', sempreSquadre:true},
   treperdere:{nome:'A perdere',titolo:'Il tressette a perdere',posti:[2,4],      vista:'briscola', sempreSquadre:true}
 };
 ```
 
 `vista` dice quale delle due viste di gioco disegna il tavolo, `posti` in quanti si
-può giocare, `sempreSquadre` che le squadre non sono una scelta. Nella stanza il
+può giocare, `sempreSquadre` che le squadre non sono una scelta, `bot` se i finti lo
+sanno giocare. Quest'ultima non è un vezzo: con un finto seduto a un gioco che non
+sa, il tavolo si ferma sul suo turno e non riparte più — quindi non si dà, e il
+bottone del via dice perché. Nella stanza il
 gioco si sceglie da una **tendina**, non da una fila di bottoni: sei giochi facevano
 due righe e ogni gioco in più ne avrebbe aggiunta una, e quello spazio è quello che
 poi manca al QR. Le opzioni non si disabilitano mai — dentro c'è scritto in quanti si
@@ -274,8 +277,23 @@ succede, il muto e il resize compresi: senza la chiave lo stesso finto si sarebb
 riprenotato dieci volte per la stessa carta, e chi gioca col tasto del muto non lo
 avrebbe fatto calare mai.
 
-Per ora sanno solo la **briscola**. `robot()` esce da solo sugli altri giochi, che
-restano giocabili fra persone come prima.
+Sanno la **briscola**, la **scopa** e con lei lo **scopone**, che è la stessa
+strategia col mazzo tutto in mano. `robot()` esce da solo sugli altri giochi — la
+chiamata e il tressette — che restano giocabili fra persone come prima, e che con un
+finto seduto non si danno affatto (`saGiocare()`, la colonna `bot` del registro).
+
+A scopa la mossa non è una carta ma una carta **più quale presa**, e il voto è la
+somma di quello che porta via e di quello che lascia: le carte, i denari, il
+settebello, quanto migliora la primiera del gruppo, la scopa — e in negativo il
+rischio di lasciare un tavolo che somma da uno a dieci, che è **l'unico modo di
+regalare una scopa** e quello che si regala sempre. `memoria` qui vuol dire tenere
+il conto delle prese, che al tavolo stanno un attimo scoperte davanti a tutti prima
+di finire nel mucchietto.
+
+Una differenza di ritmo: a briscola la presa se la prende `autoResolve()`, che
+aspetta lui. A scopa lo stato cambia subito, quindi è il bot che deve aspettare —
+se cala mentre le carte stanno ancora volando via non si vede più chi ha preso che
+cosa.
 
 ## Presenza
 
@@ -608,9 +626,17 @@ browser condividono il `localStorage`, quindi lo stesso `bt_id`, e per il
 mazziere sono la stessa persona — il secondo non si siede e basta.
 
 La strategia si misura, non si guarda: mille mani in un secondo con `simul.js`, che
-chiama `sceltaBriscola()` e `vistaBot()` veri con lo stato al posto suo. Contro chi
-gioca a caso Rosaria fa 80 a 40; contro Sasà 69 a 51; quattro Peppino uguali fanno
-50 e 50, che è il controllo che nel punteggio non ci sia un vantaggio di posto.
+chiama `sceltaBriscola()` e `vistaBot()` veri con lo stato al posto suo. A briscola,
+contro chi gioca a caso Rosaria fa 80 a 40, contro Sasà 69 a 51; a scopa 3,2 a 1,3
+contro il caso e il settebello nel 64% delle mani. Il controllo che conta è l'ultima
+riga: caratteri tutti uguali devono uscire pari, e il posto di chi apre va fatto
+girare — a scopone chi cala l'ultima carta si prende anche il tavolo, e senza
+girarlo quel vantaggio finisce nel punteggio e sembra strategia.
+
+Il mazziere arriva alla fine della mano prima degli altri: l'ultimo stato deve
+ancora attraversare il broker. `test2.js` **aspetta che si mettano in pari** prima
+di confrontarli — senza, con la macchina carica il controllo trovava i clienti a
+un giro indietro e sembrava un disallineamento vero.
 
 **Far girare i test dopo ogni modifica al motore o alle viste.** La scopa era arrivata in
 produzione rotta proprio perché due funzioni scritte per la briscola andavano in eccezione

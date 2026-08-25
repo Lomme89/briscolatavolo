@@ -431,6 +431,20 @@ const attesa = ms => new Promise(r => setTimeout(r, ms));
     ok(prima !== dopo, `tocchi il nome e se ne siede un altro (${prima} → ${dopo})`);
     const carat = await p.evaluate(() => S.seats.filter(s => s.bot).map(s => s.bot));
     ok(new Set(carat).size === carat.length, 'e non se ne siedono due uguali');
+
+    /* Un gioco che i finti non sanno non si dà: il tavolo si fermerebbe sul
+       loro turno e non ripartirebbe più. Si dice subito e non si distribuisce.
+       Si prova in quattro, dove il tressette per il numero di posti si
+       giocherebbe: in tre risponderebbe l'altra spiegazione e non questa. */
+    await p.selectOption('#gm', 'tressette'); await attesa(300);
+    ok(/non sanno ancora/.test(await p.textContent('#toast') || ''),
+      'un gioco che i finti non sanno lo dice appena lo scegli');
+    ok(await p.evaluate(() => document.getElementById('via').classList.contains('spento')),
+      'e il bottone del via è spento');
+    await p.click('#via', { force: true }); await attesa(300);
+    ok(await p.evaluate(() => S.phase === 'attesa'), 'e premendolo non si distribuisce lo stesso');
+    await p.selectOption('#gm', 'briscola'); await attesa(250);
+
     await p.click('.seatlist li:nth-child(4) .via'); await attesa(200);
     ok(await p.evaluate(() => S.seats.length) === 3, 'la crocetta lo manda via');
 
@@ -450,6 +464,42 @@ const attesa = ms => new Promise(r => setTimeout(r, ms));
     ok(fine.f === 'fine', 'la mano contro i finti arriva in fondo');
     ok(fine.t === 120, `e i punti fanno 120 (${fine.t})`);
     await p.screenshot({ path: path.join(SCATTI, '10-da-solo.png') });
+    pagine.splice(pagine.indexOf(p), 1);
+    await c.close();
+  }
+
+  /* E la stessa cosa a scopa e a scopone, che sono l'altra vista e l'altro
+     modo di scegliere la mossa: quello che si rompe non è chi vince ma il
+     finto che si pianta a metà mano e lascia il tavolo fermo per sempre. */
+  for (const [gioco, quanti] of [['scopa', 2], ['scopa', 4], ['scopone', 4]]) {
+    const c = await contesto();
+    const p = await nuovaScheda(c, 'solo ' + gioco);
+    await p.setViewportSize({ width: 390, height: 844 });
+    await p.goto('http://localhost:8731/');
+    await p.waitForSelector('#crea', { timeout: 4000 });
+    await p.fill('#nm', 'Lomme');
+    await p.click('#solo'); await attesa(250);
+    for (let k = 2; k < quanti; k++) { await p.click('#piu'); await attesa(90); }
+    await p.selectOption('#gm', gioco); await attesa(250);
+    await p.click('#via'); await attesa(800);
+    await p.addStyleTag({ content: '*{animation:none !important;transition:none !important}' });
+    let giri = 0;
+    while (giri++ < 600) {
+      await attesa(160);
+      if (await p.evaluate(() => S.phase === 'fine')) break;
+      if (await p.evaluate(() => S.turn === mySeat)) {
+        /* Se la carta si può prendere in più modi la vista chiede quale: si
+           conferma il primo, che qui interessa solo che il giro non si pianti. */
+        if (await p.$('#sc-si')) { await p.click('#sc-si', { force: true }); continue; }
+        const s = await p.$('.slot.playable');
+        if (s) await s.click({ force: true });
+      }
+    }
+    const r = await p.evaluate(() => ({
+      f: S.phase, carte: Object.values(S.taken).reduce((a, t) => a + t.length, 0)
+    }));
+    ok(r.f === 'fine', `da solo a ${gioco} in ${quanti}: la mano arriva in fondo`);
+    ok(r.carte === 40, `da solo a ${gioco} in ${quanti}: le quaranta carte sono tutte raccolte (${r.carte})`);
     pagine.splice(pagine.indexOf(p), 1);
     await c.close();
   }

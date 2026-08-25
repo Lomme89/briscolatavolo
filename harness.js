@@ -15,7 +15,10 @@ function nuovoBroker() {
       const mie = new Set(); const h = {};
       const c = {
         on(ev, cb) { (h[ev] = h[ev] || []).push(cb); if (ev === 'connect') setTimeout(() => cb(), 0); return c; },
-        emit(ev, ...a) { (h[ev] || []).forEach(f => f(...a)); },
+        /* Le finestre si chiudono a fine partita, ma un messaggio puo'
+           essere ancora per aria: consegnarlo a un jsdom chiuso fa esplodere
+           il processo per un errore che non c'entra con quello che si prova. */
+        emit(ev, ...a) { (h[ev] || []).forEach(f => { try { f(...a); } catch (e) { if (!/activeElement|document/.test(e.message)) throw e; } }); },
         subscribe(t, cb) {
           mie.add(t); subs.push({ t, c });
           if (Object.prototype.hasOwnProperty.call(retained, t) && retained[t] !== '')
