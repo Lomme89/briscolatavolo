@@ -8,7 +8,7 @@ const SCATTI = path.join(__dirname, 'scatti');
 fs.mkdirSync(SCATTI, { recursive: true });
 
 const FINTO = `
-window.__subs=[];
+window.__subs=[]; window.__pubblicati=[];
 window.__btDeliver=(t,p)=>window.__subs.filter(s=>s.t===t).forEach(s=>s.c.emit('message',t,{toString:()=>p}));
 window.mqtt={connect(){
   const h={},c={
@@ -17,7 +17,7 @@ window.mqtt={connect(){
     subscribe(t,cb){window.__subs.push({t,c}); window.btSub(t).then(r=>{
       if(r) c.emit('message',t,{toString:()=>r}); if(cb) cb(null);}); return c;},
     unsubscribe(t){window.__subs=window.__subs.filter(s=>!(s.t===t&&s.c===c)); return c;},
-    publish(t,p,o){window.btPub(t,String(p),!!(o&&o.retain)); return c;},
+    publish(t,p,o){window.__pubblicati.push(t); window.btPub(t,String(p),!!(o&&o.retain)); return c;},
     end(){}
   }; return c;}};
 window.QRCode=function(el,o){ el.innerHTML='<canvas width="'+(o.width||100)+'" height="'+(o.height||100)+'" style="background:'+(o.colorLight||'#fff')+'"></canvas>'; };
@@ -394,6 +394,101 @@ const attesa = ms => new Promise(r => setTimeout(r, ms));
   }
   await A.setViewportSize({ width: 390, height: 844 }); await attesa(300);
   await A.screenshot({ path: path.join(SCATTI, '9-tavolo-scopa.png') });
+
+  /* Il tavolo in solitario: si apre senza rete, i finti si siedono, si
+     cambiano e se ne vanno, e poi giocano davvero — la mano deve finire e
+     i punti devono fare 120. È anche l'unica prova che i bot non si
+     inceppano a metà, che è il modo in cui si romperebbero. */
+  {
+    const c = await contesto();
+    const p = await nuovaScheda(c, 'solo');
+    await p.setViewportSize({ width: 390, height: 844 });
+    await p.goto('http://localhost:8731/');
+    await p.waitForSelector('#crea', { timeout: 4000 });
+    await p.fill('#nm', 'Lomme');
+    await p.click('#solo'); await attesa(400);
+    ok(await p.isVisible('.seatlist'), 'da solo si apre il tavolo senza passare dal broker');
+    ok(!(await p.isVisible('#qr')), 'da solo non c\'è nessun QR da far inquadrare');
+    ok(!(await p.$('#link')), 'e nessun invito da mandare');
+    /* `solo` è un `let` in cima allo script: sta nell'ambiente lessicale
+       globale, non su `window`, e va letto per nome come si legge `S`. */
+    const rete = await p.evaluate(() => ({
+      solo: solo === true,
+      /* Il retained vuoto e lo stato non devono mai partire: da solo il
+         codice esiste solo per non avere due strade nel motore. */
+      pubblicato: (window.__pubblicati || []).slice()
+    }));
+    ok(rete.solo, 'e il tavolo si sa di essere in solitario');
+    ok(!rete.pubblicato.length, 'e sul filo non parte niente ('+rete.pubblicato.join(', ')+')');
+
+    await p.click('#piu'); await attesa(200);
+    await p.click('#piu'); await attesa(200);
+    const quanti = await p.evaluate(() => S.seats.length);
+    ok(quanti === 4, `i finti si siedono (siamo in ${quanti})`);
+    const prima = await p.evaluate(() => S.seats[1].bot);
+    await p.click('.seatlist li:nth-child(2) .altro'); await attesa(200);
+    const dopo = await p.evaluate(() => S.seats[1].bot);
+    ok(prima !== dopo, `tocchi il nome e se ne siede un altro (${prima} → ${dopo})`);
+    const carat = await p.evaluate(() => S.seats.filter(s => s.bot).map(s => s.bot));
+    ok(new Set(carat).size === carat.length, 'e non se ne siedono due uguali');
+    await p.click('.seatlist li:nth-child(4) .via'); await attesa(200);
+    ok(await p.evaluate(() => S.seats.length) === 3, 'la crocetta lo manda via');
+
+    await p.click('#via'); await attesa(900);
+    await p.addStyleTag({ content: '*{animation:none !important;transition:none !important}' });
+    /* Si gioca fino in fondo: io calo quando tocca a me, i finti da soli. */
+    let giri = 0;
+    while (giri++ < 400) {
+      await attesa(220);
+      if (await p.evaluate(() => S.phase === 'fine')) break;
+      if (await p.evaluate(() => S.turn === mySeat && S.table.length < S.n)) {
+        const s = await p.$('.slot.playable');
+        if (s) await s.click({ force: true });
+      }
+    }
+    const fine = await p.evaluate(() => ({ f: S.phase, t: (S.points || []).reduce((a, b) => a + b, 0) }));
+    ok(fine.f === 'fine', 'la mano contro i finti arriva in fondo');
+    ok(fine.t === 120, `e i punti fanno 120 (${fine.t})`);
+    await p.screenshot({ path: path.join(SCATTI, '10-da-solo.png') });
+    pagine.splice(pagine.indexOf(p), 1);
+    await c.close();
+  }
+
+  /* La stanza in solitario è più alta di quella vera anche se non ha il QR:
+     ogni finto porta il mestiere scritto sotto al nome, cioè una riga a
+     testa, e in sei sono cinque righe in più. Si misura come l'altra. */
+  for (const [tel, w, h, alto, basso] of TEL) {
+    for (const quanti of [2, 4, 6]) {
+      const c = await contesto();
+      const p = await nuovaScheda(c, 'solo ' + tel);
+      await p.setViewportSize({ width: w, height: h });
+      await p.goto('http://localhost:8731/');
+      await p.waitForSelector('#crea', { timeout: 4000 });
+      await p.addStyleTag({
+        content: `.wrap{padding-top:${14 + alto}px !important;padding-bottom:${20 + basso}px !important}`
+          + `.sonda{padding-top:${alto}px !important;padding-bottom:${basso}px !important}`
+          + '*{animation:none !important;transition:none !important}'
+      });
+      await p.fill('#nm', 'Lomme');
+      await p.click('#solo'); await attesa(250);
+      for (let k = 2; k < quanti; k++) { await p.click('#piu'); await attesa(90); }
+      await attesa(200);
+      const m = await p.evaluate(() => {
+        const wr = document.querySelector('.wrap');
+        const pr = wr.style.minHeight; wr.style.minHeight = '0';
+        const nat = Math.ceil(wr.getBoundingClientRect().height); wr.style.minHeight = pr;
+        return {
+          nat, i: innerHeight, n: S.seats.length,
+          tagliati: [...document.querySelectorAll('.seatlist li.finto .nome i')]
+            .filter(x => x.scrollWidth > x.clientWidth + 1).map(x => x.textContent)
+        };
+      });
+      ok(m.n === quanti && m.nat <= m.i, `da solo in ${quanti} su ${tel}: ci sta senza scrollare (${m.nat} su ${m.i})`);
+      ok(!m.tagliati.length, `da solo in ${quanti} su ${tel}: il mestiere del finto ci sta ("${m.tagliati.join('", "')}")`);
+      pagine.splice(pagine.indexOf(p), 1);
+      await c.close();
+    }
+  }
 
   console.log(dice.join('\n'));
   const veri = guai.filter(g => !/favicon|ERR_/.test(g));

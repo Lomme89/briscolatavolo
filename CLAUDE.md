@@ -2,7 +2,7 @@
 
 Webapp per giocare a carte napoletane quando si è seduti insieme senza un mazzo vero.
 Ognuno usa il proprio telefono, un codice di quattro lettere tiene insieme il tavolo.
-Da 2 a 6 giocatori. Sei giochi: **briscola**, **briscola chiamata**, **scopa**,
+Da 2 a 6 giocatori, e a briscola i posti che avanzano li possono tenere dei finti. Sei giochi: **briscola**, **briscola chiamata**, **scopa**,
 **scopone scientifico**, **tressette** e **tressette a perdere**.
 
 In produzione su GitHub Pages: `https://lomme89.github.io/briscolatavolo/`
@@ -19,6 +19,7 @@ foglio.py           rifà il foglio di un mazzo dalle quaranta carte sciolte
 harness.js          più client jsdom con un broker MQTT finto in-process
 test2.js            partite intere di briscola e scopa, da 2 a 4
 vista.js            le stesse cose in Chromium, per quello che jsdom non vede
+simul.js            mille mani di briscola fra bot, per misurare la strategia
 ```
 
 Non c'è build, non ci sono dipendenze npm, non c'è bundler. Si modifica `index.html`
@@ -80,6 +81,10 @@ avvio. Icone e manifest, che cambiano di rado, restano cache-first.
 | `lancia()` / `raccogli()` / `scossa()` | animazioni, Web Animations API |
 | `avvisa(testo)` | l'unico posto dove dire una cosa breve |
 | `nega(el, testo)` | un tocco che non può fare niente, e il perché |
+| `vistaBot(seat)` | l'unica finestra di un finto sul tavolo: solo quello che vedrebbe |
+| `sceltaBriscola(v,car)` | che carta cala un finto, e quanto è dura la scelta |
+| `pensa(car,durezza)` | quanto ci mette a calarla |
+| `robot()` | prenota il turno del finto, una volta sola per mossa |
 | `presenzaDiff()` | chi si è appena seduto, chi se n'è andato, chi aspetta |
 | `volaPrese()` / `timbroScopa()` | la presa e la scopa, a scopa |
 | `finePartita()` | la mano finita: conti a schermo intero, e la festa |
@@ -218,6 +223,59 @@ punto vero, e quel numero rimane.
 
 L'uscita del mazziere chiede conferma a due tocchi: non esce e basta, pubblica
 il retained vuoto e **smonta il tavolo di tutti**.
+
+## I finti giocatori
+
+Un bot **non è una modalità**: è un posto come gli altri, con un id suo, che invece di
+mandare l'azione dalla rete la mette dritta in `handle()`. Girano solo sul mazziere, che
+è l'unico ad avere lo stato vero — e per questo si possono mettere anche a un tavolo
+vero, per riempire il quarto posto quando siete in tre. Un tavolo **in solitario** è
+soltanto il caso in cui i posti li tengono tutti loro: `solo` spegne la rete e basta.
+Niente broker, niente codice, niente QR; funziona col telefono in aereo, ed è l'unico
+bottone della home che non aspetta il collegamento.
+
+**`vistaBot(seat)` è il punto in cui si decide se barano.** Lo stato ha le mani di
+tutti, e un bot che le legge gioca perfetto: non perde mai, e non è divertente. Quella
+funzione è la sola finestra che ha sul tavolo, e dentro c'è la sua mano, il tavolo, la
+briscola, quante carte restano nel mazzo e quello che è già caduto. Se aggiungi un gioco
+ai bot, aggiungi lì quello che gli serve — non altrove.
+
+Le carte cadute stanno in `cadute`, **fuori dallo stato**: sul filo non servono a
+nessuno, i bot girano solo qui, e ogni `deal()` le azzera.
+
+I caratteri sono sei manopole sulla stessa strategia, non sei strategie:
+
+| manopola | che cosa muove |
+|---|---|
+| `rischio` | quanto volentieri brucia una briscola per portare via il giro |
+| `memoria` | se tiene il conto di quello che è caduto e di quante briscole restano fuori |
+| `fretta` | quanto è svelto a rispondere |
+| `errore` | quanto spesso prende la **seconda** scelta invece della prima |
+| `caos` | quanto spesso ne cala una a caso |
+| `avidita` | se l'asso lo incassa o se lo tiene |
+
+`errore` e `caos` sono due cose diverse apposta: chi sbaglia prende la seconda scelta,
+che è come sbaglia uno che sta giocando; chi va a caso non stava guardando. È l'unica
+cosa che distingue chi ha imparato ieri da chi gioca male e basta.
+
+Un carattere nuovo è **una riga in `CARATTERI`**. Quelli che ci sono: Assunta prudente,
+Gennaro sanguigno, Peppino distratto, Rosaria che se le ricorda tutte, Sasà che ha
+imparato ieri.
+
+**Quello che fa sembrare vero un finto non è come gioca: è quando gioca.** `pensa()`
+allunga l'attesa quando le prime due scelte si somigliano — una carta obbligata esce
+subito, una scelta difficile si fa aspettare — e ogni tanto ci aggiunge un
+tentennamento. C'è un tetto a 4,2 secondi: la lentezza è un carattere, non una
+punizione, e oltre quel punto uno smette di credere che stia pensando e comincia a
+credere che si sia rotto qualcosa.
+
+`robot()` prenota il turno **una volta sola per mossa**. `paint()` gira a ogni cosa che
+succede, il muto e il resize compresi: senza la chiave lo stesso finto si sarebbe
+riprenotato dieci volte per la stessa carta, e chi gioca col tasto del muto non lo
+avrebbe fatto calare mai.
+
+Per ora sanno solo la **briscola**. `robot()` esce da solo sugli altri giochi, che
+restano giocabili fra persone come prima.
 
 ## Presenza
 
@@ -453,7 +511,9 @@ sovrascrivere dall'alto.
 e il totale cambia col telefono. `stanza()` disegna a QR ancora vuoto, chiede a
 `spazioQR()` quanto resta, e se non basta toglie qualcosa e rimisura: prima le due righe
 di spiegazione (`.senzanote`), poi i posti su due colonne (`.stretta`), e in ultimo
-il QR se ancora non basta. Alla fine riprova
+il QR se ancora non basta. Da solo il QR non c'è, ma la scala si fa lo stesso: ogni
+finto porta il mestiere scritto sotto al nome, cioè una riga a testa, e in sei sono
+cinque righe in più di una stanza vera. Alla fine riprova
 a rimettere le spiegazioni, perché mettere i posti su due colonne non toglie niente
 mentre toglierle sì — si prova nell'altro ordine solo perché su un telefono stretto le
 due colonne accorciano i nomi. Quello che avanza se lo prende il QR, fino a 240px: più è
@@ -546,6 +606,11 @@ due che possono sforare per prime. Lascia gli scatti in `scatti/`.
 In `vista.js` ogni client sta in un **contesto suo**: due schede dello stesso
 browser condividono il `localStorage`, quindi lo stesso `bt_id`, e per il
 mazziere sono la stessa persona — il secondo non si siede e basta.
+
+La strategia si misura, non si guarda: mille mani in un secondo con `simul.js`, che
+chiama `sceltaBriscola()` e `vistaBot()` veri con lo stato al posto suo. Contro chi
+gioca a caso Rosaria fa 80 a 40; contro Sasà 69 a 51; quattro Peppino uguali fanno
+50 e 50, che è il controllo che nel punteggio non ci sia un vantaggio di posto.
 
 **Far girare i test dopo ogni modifica al motore o alle viste.** La scopa era arrivata in
 produzione rotta proprio perché due funzioni scritte per la briscola andavano in eccezione

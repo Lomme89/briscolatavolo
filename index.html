@@ -336,6 +336,31 @@ html[data-tema=chiaro] .scelta select{color-scheme:light}
 .wrap.stretta .seatlist .team.albo{display:none}
 .wrap.stretta .roomcode{font-size:clamp(30px,10vw,42px)}
 .seatlist li.empty{color:var(--dim);font-style:italic}
+/* Il posto di un finto: il nome si tocca e si siede un altro, la crocetta
+   lo manda via. Il mestiere sta scritto sotto al nome, piccolo, perché è
+   quello che si guarda per scegliere con chi giocare. */
+.seatlist li.finto .nome{display:flex;flex-direction:column;align-items:flex-start;gap:1px;flex:1 1 auto;
+  text-align:left;font:inherit;color:var(--testo);padding:0;background:none;border:0;min-width:0}
+.seatlist li.finto .nome i{font-style:normal;font-size:11.5px;color:var(--dim);line-height:1.25;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.seatlist li.finto button.nome:active{opacity:.6}
+.seatlist li.finto .via{flex:none;margin-left:auto;padding:4px;border-radius:8px;color:var(--dim);
+  display:grid;place-items:center;background:none;border:0}
+.seatlist li.finto .via .ico{width:15px;height:15px}
+.seatlist li.finto .via:active{background:rgba(128,128,128,.18)}
+.seatlist li.empty.piu{font-style:normal;padding:0;border-style:dashed}
+.seatlist li.empty.piu button{display:flex;align-items:center;gap:10px;width:100%;
+  padding:11px 12px;font:inherit;font-size:15px;color:var(--dim);background:none;border:0;text-align:left}
+.seatlist li.empty.piu button:active{color:var(--testo)}
+.wrap.stretta .seatlist li.empty.piu{grid-column:1 / -1}
+.wrap.stretta .seatlist li.finto .nome i{display:none}
+/* Aprire un tavolo e giocare da solo sono la stessa scelta fatta in due
+   modi: stanno su una riga, se no la home cresce di un bottone e il
+   ventaglio di copertina paga la differenza. */
+.duebot{display:flex;gap:8px}
+.duebot #crea{flex:1.7 1 0}
+.duebot #solo{flex:1 1 0}
+.duebot .btn{margin-top:0}
 @keyframes slide{from{opacity:0;transform:translateY(-6px)}}
 
 /* ---- giocatori ---- */
@@ -741,6 +766,10 @@ html.basso .panel{padding:11px;margin-top:8px}
 html.basso .btn{padding:11px;margin-top:8px}
 html.basso label.f{margin-bottom:6px}
 html.basso .hint{margin-top:8px}
+/* Sul telefono più piccolo la parola «Squadra» si prende quello che serve al
+   mestiere del finto: la lettera da sola dice la stessa cosa, ed è già come
+   si scrive quando i posti stanno su due colonne. */
+html.basso .seatlist .team .pre{display:none}
 html.basso .seatlist{gap:6px}
 html.basso .seatlist li{padding:8px 11px}
 html.basso .roomcode{font-size:clamp(34px,12vw,46px)}
@@ -1085,6 +1114,10 @@ let cli=null, bi=0, connected=false;
 let me={id:localStorage.bt_id||('p'+Math.random().toString(36).slice(2,9)),name:localStorage.bt_name||''};
 localStorage.bt_id=me.id;
 let code=null, isHost=false, mySeat=-1, S=null, resolving=false, invitoVisto=false;
+/* Un tavolo in solitario non tocca la rete: niente broker, niente codice,
+   niente QR, e funziona col telefono in aereo. `solo` è la sola differenza
+   fra i due — il motore, le regole e le viste sono le stesse. */
+let solo=false;
 let prev={turn:null,tavolo:0,fase:null,punti:null};
 const T=c=>({s:'bt/'+c+'/s', a:'bt/'+c+'/a', h:'bt/'+c+'/h'});
 /* Battito di presenza. Serve a sapere chi non c'è più, non a mettere
@@ -1114,7 +1147,7 @@ function connect(cb){
     else if(t===T(code).a && isHost){ handle(m); }
   });
 }
-function pubState(){ if(cli&&S) cli.publish(T(code).s,JSON.stringify(S),{retain:true,qos:0}); }
+function pubState(){ if(!solo&&cli&&S) cli.publish(T(code).s,JSON.stringify(S),{retain:true,qos:0}); }
 function send(a){ a.id=me.id; if(isHost) handle(a); else if(cli) cli.publish(T(code).a,JSON.stringify(a),{qos:0}); }
 
 /* ================= regole (le applica il mazziere) ================= */
@@ -1150,6 +1183,23 @@ function handle(a){
     if(S.phase!=='gioco') S.seats=S.seats.filter(s=>s.id!==a.id);
   }
   else if(a.t==='squadre'&&S.phase!=='gioco'){ S.teams=!!a.v; }
+  /* Mettere e togliere un finto passa da qui come tutto il resto: così al
+     tavolo vero lo vedono anche gli altri, senza una seconda strada. */
+  else if(a.t==='piubot'&&S.phase==='attesa'&&a.id===me.id&&isHost){
+    if(S.seats.length>=6) return;
+    S.seats.push(nuovoBot());
+  }
+  else if(a.t==='menobot'&&S.phase==='attesa'&&a.id===me.id&&isHost){
+    S.seats=S.seats.filter(s=>s.id!==a.chi||!s.bot);
+  }
+  else if(a.t==='altrobot'&&S.phase==='attesa'&&a.id===me.id&&isHost){
+    const s=S.seats.find(x=>x.id===a.chi&&x.bot); if(!s) return;
+    const tutti=Object.keys(CARATTERI);
+    const usati=S.seats.filter(x=>x.bot&&x!==s).map(x=>x.bot);
+    const dopo=tutti.concat(tutti).slice(tutti.indexOf(s.bot)+1);
+    const k=dopo.find(x=>usati.indexOf(x)<0)||dopo[0];
+    s.bot=k; s.name=CARATTERI[k].nome;
+  }
   else if(a.t==='gioco'&&S.phase!=='gioco'&&GIOCHI[a.v]){ S.game=a.v; ripulisci(); }
   else if(a.t==='stanza'&&S.phase==='fine'){ ripulisci(); }
   else if(a.t==='sciogli'&&S.phase==='gioco'&&a.id===me.id){ ripulisci(); }
@@ -1207,6 +1257,7 @@ function ripulisci(){
 }
 function deal(){
   assorbiCoda();
+  cadute=[]; fermaBot();
   S.n=S.seats.length;
   if(S.n%2||S.n<4) S.teams=false;
   if(gioco(S).sempreSquadre) S.teams=true;
@@ -1306,6 +1357,7 @@ function autoResolve(){
     const g=S.table.reduce((a,p)=>a+valore(S,p.c),0);
     S.tr[w]++; S.pp[w]+=g; S.last={pts:g,seat:w};
     if(S.deck.length) for(let k=0;k<S.n;k++){const s=(w+k)%S.n; if(S.deck.length) S.hands[s].push(S.deck.shift());}
+    S.table.forEach(p=>cadute.push(p.c));   // quello che i bot possono ricordarsi
     S.table=[]; S.turn=w;
     const finita=!S.deck.length&&Object.values(S.hands).every(x=>!x.length);
     if(tre){
@@ -1322,6 +1374,213 @@ function autoResolve(){
   },ritmoPresa(S).fine);
 }
 
+/* ================= i finti giocatori =================
+   Un bot non è una modalità a parte: è un posto come gli altri, con un id
+   suo, che invece di mandare l'azione dalla rete la mette direttamente in
+   `handle()`. Girano solo sul mazziere, che è l'unico ad avere lo stato
+   vero — ed è proprio per questo che bisogna stare attenti a non fargli
+   leggere quello che uno seduto lì non vedrebbe. Ci pensa `vistaBot()`.
+
+   Un tavolo in solitario è semplicemente un tavolo dove i posti li tengono
+   tutti loro: `solo` spegne la rete e basta, il motore è quello. Così non
+   esiste una seconda copia delle regole da tenere allineata, che in un file
+   solo è il modo più veloce per farne divergere una. */
+
+/* Le carte già passate sul tavolo. Non stanno nello stato perché sul filo
+   non servono a nessuno: i bot girano solo qui, e qui la memoria è locale.
+   Si azzera a ogni distribuzione. */
+let cadute=[];
+
+/* Lo stato ha le mani di tutti, e un bot che le legge gioca perfetto: non
+   perde mai, e non è divertente giocarci. Questa è l'unica finestra che ha
+   sul tavolo, e dentro c'è soltanto quello che vedrebbe uno seduto lì —
+   la sua mano, il tavolo, la briscola, quante carte restano nel mazzo e
+   quello che è già caduto. Se aggiungi un gioco ai bot, aggiungi qui quello
+   che gli serve, non altrove: questo è il punto in cui si decide se barano. */
+function vistaBot(seat){
+  return {
+    seat, n:S.n,
+    mano:(S.hands[seat]||[]).slice(),
+    tavolo:(S.table||[]).map(p=>({seat:p.seat,c:p.c})),
+    briscola:S.trumpSuit,
+    scoperta:(S.trump&&S.deck.length)?S.trump:null,
+    mazzo:S.deck.length,
+    compagno:(S.teams&&S.n%2===0)?(seat+2)%S.n:-1,
+    cadute:cadute.slice()
+  };
+}
+
+/* I caratteri non sono cinque strategie diverse: sono cinque manopole sulla
+   stessa. `rischio` quanto volentieri brucia una briscola, `memoria` quanto tiene
+   il conto di quello che è caduto e di quante briscole restano fuori,
+   `fretta` quanto è svelto a rispondere, `errore` quanto spesso prende la
+   seconda mossa invece della prima, `caos` quanto spesso ne cala una a
+   caso, `avidita` se l'asso lo incassa o se lo tiene. Un carattere nuovo è
+   una riga: non serve toccare la strategia.
+
+   `errore` e `caos` sono due cose diverse apposta. Chi sbaglia prende la
+   seconda scelta, che è come sbaglia uno che sta giocando davvero; chi va a
+   caso non stava guardando, ed è l'unica cosa che distingue chi ha imparato
+   ieri da chi gioca male e basta. */
+const CARATTERI={
+  assunta:  {nome:'Assunta',  detto:'prudente, e ci pensa su',
+             rischio:.22, memoria:.90, fretta:.72, errore:.10, caos:.02, avidita:.28},
+  gennaro:  {nome:'Gennaro',  detto:'svelto e sanguigno',
+             rischio:.88, memoria:.45, fretta:1.65,errore:.20, caos:.05, avidita:.85},
+  peppino:  {nome:'Peppino',  detto:'bravo, ma si distrae',
+             rischio:.55, memoria:.25, fretta:1.05,errore:.20, caos:.08, avidita:.55},
+  rosaria:  {nome:'Rosaria',  detto:'lenta, se le ricorda tutte',
+             rischio:.45, memoria:.98, fretta:.62, errore:.04, caos:.01, avidita:.42},
+  sasa:     {nome:'Sasà',     detto:'ha imparato ieri',
+             rischio:.50, memoria:.05, fretta:1.9, errore:.45, caos:.30, avidita:.50}
+};
+const caratt=k=>CARATTERI[k]||CARATTERI.peppino;
+const botDi=seat=>{ const s=S&&S.seats&&S.seats[seat]; return s&&s.bot?caratt(s.bot):null; };
+
+/* Quello che fa sembrare vero un finto non è come gioca: è quando gioca.
+   Una carta obbligata esce subito, una scelta difficile si fa aspettare, e
+   ogni tanto uno resta lì a pensare per niente — che è la cosa che più di
+   tutte non fa un programma. Sotto i 380 ms nessuno ha nemmeno guardato le
+   carte, quindi non si scende mai sotto, per svelto che sia il carattere. */
+function pensa(car,durezza){
+  let ms=320+900*durezza+Math.random()*380;
+  if(Math.random()<.10) ms+=500+Math.random()*800;   // il tentennamento
+  /* Il tetto c'è perché la lentezza è un carattere, non una punizione: oltre
+     i quattro secondi uno smette di credere che stia pensando e comincia a
+     credere che si sia rotto qualcosa. */
+  return Math.max(360,Math.min(4200,Math.round(ms/car.fretta)));
+}
+
+/* Quello che è ancora fuori: le quaranta meno quelle cadute, meno la mia
+   mano, meno quelle in tavola. Sta fra il mazzo e le mani degli altri, e il
+   bot non sa dove — ma sa che esiste, ed è quanto basta per capire se il
+   suo asso è padrone. Chi ha `memoria` bassa non ci guarda nemmeno. */
+function fuori(v){
+  const via={};
+  v.cadute.concat(v.mano,v.tavolo.map(p=>p.c)).forEach(c=>{ via[c.s*100+c.r]=1; });
+  const r=[];
+  for(let s=0;s<4;s++) for(let n=1;n<=10;n++) if(!via[s*100+n]) r.push({s,r:n});
+  return r;
+}
+/* «Padrona» è la carta che al suo seme non la piglia più nessuno. Su una
+   scartina non vuol dire niente; su un asso vuol dire che è il momento. */
+const padrona=(c,resto)=>!resto.some(x=>x.s===c.s&&STR[x.r]>STR[c.r]);
+
+/* La briscola, in due o in quattro. Non è un solutore: è il modo in cui si
+   gioca al bar — non aprire di briscola, non buttare i carichi, prendere
+   quando il giro vale, caricare sul compagno quando è lui a portarla via.
+   Ogni carta prende un voto, e il carattere sposta i pesi. */
+function sceltaBriscola(v,car){
+  const br=v.briscola, tav=v.tavolo, ultimo=tav.length===v.n-1;
+  const inGioco=tav.reduce((a,p)=>a+pts(p.c),0);
+  const chiPrende=tav.length?trickWinner(tav,br):-1;
+  const delCompagno=chiPrende>=0&&chiPrende===v.compagno;
+  /* La memoria si tira a sorte una volta per mossa, non per carta: uno o si
+     ricorda com'è andata o non se la ricorda, non a seconda della carta. */
+  const ricorda=Math.random()<car.memoria, resto=ricorda?fuori(v):null;
+  /* Quante briscole sono ancora in giro è il numero che al tavolo tengono
+     tutti a mente, e che chi non lo tiene perde: dice se l'asso si può
+     aprire e se la briscola che sto per calare basta a portare via il giro. */
+  const brFuori=ricorda?resto.filter(x=>x.s===br).length:null;
+
+  const voti=v.mano.map((c,i)=>{
+    const tr=c.s===br, val=pts(c);
+    let p=0;
+    if(!tav.length){
+      /* Si apre. Meglio una scartina: la briscola si tiene per prendere, e
+         il carico aperto lo regala all'avversario — se non sei uno che i
+         carichi li incassa subito, e c'è chi lo è. */
+      p=-val*4;
+      if(tr) p-=30-22*car.rischio;
+      if(val>=10) p-=20-24*car.avidita;
+      /* L'asso padrone, quando è padrone davvero, si incassa: è il momento
+         in cui un giocatore vero smette di aspettare. */
+      if(ricorda&&val>=10&&padrona(c,resto)){
+        if(tr||!brFuori||v.mazzo===0&&brFuori<=1) p+=45;
+      }
+      /* Un carico aperto con mezzo mazzo di briscole ancora in giro è un
+         regalo. Chi non le conta non se ne accorge, ed è esattamente lì che
+         si vede la differenza fra chi sta attento e chi no. */
+      if(ricorda&&!tr&&val>=10&&brFuori>2) p-=brFuori*5;
+    } else {
+      const vinco=trickWinner(tav.concat([{seat:v.seat,c}]),br)===v.seat;
+      if(delCompagno){
+        /* Porta lui il giro: se dopo di me non gioca più nessuno ci carico
+           sopra, se no una carta qualsiasi — l'avversario dietro potrebbe
+           ancora prenderlo, e i punti glieli metterei in mano io. */
+        p=ultimo? val*6-(tr?18:0) : -val*3-(tr?25:0);
+      } else if(vinco){
+        /* Prendere costa: costa la carta che ci metto e, se è briscola,
+           costa una briscola in meno per dopo. Vale la pena se il giro pesa
+           — e quanto deve pesare lo dice il carattere. */
+        const preso=inGioco+val;
+        const costo=tr?(val*2+STR[c.r]*2.2)*(1.25-car.rischio):val*1.5;
+        p=40+preso*2.2-costo;
+        if(!ultimo) p-=18;                        // dietro c'è ancora gente
+        if(tr&&inGioco<12-10*car.rischio) p-=45;  // briscola su un giro da niente
+        /* Se dietro c'è gente e là fuori c'è ancora una briscola più alta
+           della mia, questa non è una presa: è una briscola buttata. */
+        if(ricorda&&tr&&!ultimo&&resto.some(x=>x.s===br&&STR[x.r]>STR[c.r])) p-=30;
+      } else {
+        /* Non lo prendo: allora ci lascio la carta che costa meno, e non
+           una briscola, che una briscola buttata è un giro perso dopo. */
+        p=-val*4-(tr?28:0);
+      }
+    }
+    return {i,p};
+  });
+
+  voti.sort((a,b)=>b.p-a.p);
+  /* Quanto è dura la scelta: se la prima e la seconda si somigliano, uno ci
+     pensa. È la stessa cosa che dice quanto deve aspettare prima di calare. */
+  const durezza=voti.length<2?0:Math.max(0,Math.min(1,1-(voti[0].p-voti[1].p)/45));
+  /* Chi non stava guardando cala quello che gli capita: è la sola cosa che
+     separa chi ha imparato ieri da chi gioca male e basta. E chi non guarda
+     nemmeno ci mette tempo, quindi la durezza va a zero. */
+  if(voti.length>1&&Math.random()<(car.caos||0))
+    return {i:voti[Math.random()*voti.length|0].i,durezza:0};
+  /* L'errore invece non è una mossa a caso: è la seconda scelta al posto
+     della prima, che è come sbaglia uno che sta giocando davvero. */
+  const k=(voti.length>1&&Math.random()<car.errore*(.4+.6*durezza))?1:0;
+  return {i:voti[k].i,durezza};
+}
+
+/* Il turno di un finto. Si programma una volta sola per mossa: `paint()`
+   gira a ogni cosa che succede — un ridisegno per il muto, uno per il
+   resize — e senza la chiave lo stesso bot si sarebbe prenotato dieci
+   volte per la stessa carta. */
+let botQuando=null, botChiave='';
+function robot(){
+  if(!isHost||!S||S.phase!=='gioco'||resolving) return fermaBot();
+  if(vistaDi(S)==='scopa'||daColore(S)||!S.table||S.table.length>=S.n) return fermaBot();
+  const seat=S.turn; if(seat<0) return fermaBot();
+  const car=botDi(seat); if(!car) return fermaBot();
+  const mano=(S.hands&&S.hands[seat])||[]; if(!mano.length) return fermaBot();
+  /* La prenotazione si tiene: se la chiave è la stessa il bot sta già
+     pensando, e rifargli partire il timer a ogni ridisegno vorrebbe dire
+     che uno che gioca col tasto del muto non lo fa calare mai. */
+  const chiave=[S.mano,seat,S.table.length,mano.length].join(':');
+  if(chiave===botChiave&&botQuando) return;
+  fermaBot(); botChiave=chiave;
+  const scelta=sceltaBriscola(vistaBot(seat),car);
+  botQuando=setTimeout(()=>{
+    botQuando=null;
+    if(botChiave!==chiave||!S||S.turn!==seat) return;
+    handle({t:'play',i:scelta.i,id:S.seats[seat].id});
+  },pensa(car,scelta.durezza));
+}
+function fermaBot(){ if(botQuando) clearTimeout(botQuando); botQuando=null; botChiave=''; }
+
+/* Chi si siede. Si prova a non ripetere lo stesso carattere allo stesso
+   tavolo: due Gennaro sono un bug, non due persone. */
+function nuovoBot(){
+  const usati=S.seats.filter(s=>s.bot).map(s=>s.bot);
+  const tutti=Object.keys(CARATTERI), liberi=tutti.filter(k=>usati.indexOf(k)<0);
+  const scelti=liberi.length?liberi:tutti;
+  const k=scelti[Math.random()*scelti.length|0];
+  return {id:'bot-'+k+'-'+Math.random().toString(16).slice(2,6),name:CARATTERI[k].nome,bot:k};
+}
+
 /* ================= flusso ================= */
 const $=id=>document.getElementById(id);
 function syncSeat(){ if(S) mySeat=S.seats.findIndex(s=>s.id===me.id); }
@@ -1331,11 +1590,12 @@ const elenco=v=>v.map(x=>NUMERI[x]||x).join(', ').replace(/, ([^,]*)$/,' o $1');
 const rnd=()=>{const A='ABCDEFGHJKLMNPQRSTUVWXYZ';return Array(4).fill(0).map(()=>A[Math.random()*A.length|0]).join('');};
 const linkTavolo=()=>location.href.split('#')[0]+'#'+code;
 
-function apri(){
-  code=rnd(); isHost=true;
+function apri(daSolo){
+  solo=!!daSolo; code=rnd(); isHost=true;
   S={code,phase:'attesa',game:'briscola',seats:[{id:me.id,name:me.name}],teams:true,first:0,albo:{},mano:0}; mySeat=0;
-  cli.subscribe(T(code).a,()=>{ pubState(); });
-  location.hash=code; SND.entra(); paint();
+  if(solo){ S.seats.push(nuovoBot()); location.hash=''; }
+  else { cli.subscribe(T(code).a,()=>{ pubState(); }); location.hash=code; }
+  SND.entra(); paint();
 }
 function entra(c){
   code=c; isHost=false; S=null; location.hash=c;
@@ -1348,9 +1608,10 @@ function esci(){
   if(!isHost&&S) send({t:'leave'});
   if(cli){cli.unsubscribe(T(code).s);cli.unsubscribe(T(code).a);cli.unsubscribe(T(code).h);}
   visti={};mazziereVisto=0;viaPrec='';persoPrec=false;
-  if(isHost&&cli) cli.publish(T(code).s,'',{retain:true});
+  if(isHost&&cli&&!solo) cli.publish(T(code).s,'',{retain:true});
   esciChiesto=false; clearTimeout(esciTorna); presenti=null; codaVista=[];
-  code=null;isHost=false;S=null;mySeat=-1;location.hash='';invitoVisto=true;
+  code=null;isHost=false;solo=false;S=null;mySeat=-1;location.hash='';invitoVisto=true;
+  fermaBot(); cadute=[];
   prev={turn:null,tavolo:0,fase:null,punti:null};azzeraViste();paint();
 }
 
@@ -1841,6 +2102,7 @@ function disegna(err){
   if(vistaDi(S)==='scopa'? !S.board : !S.table) return stanza();
   if(vistaDi(S)==='scopa') tavoloScopa(); else tavolo();
   suoniDiff();
+  robot();
 }
 const temiPastiglie=()=>`<span class="temi">${Object.keys(TEMI).map(k=>
   `<button class="tema t-${k}${k===tema?' on':''}" data-tema="${k}" aria-pressed="${k===tema}"
@@ -1859,7 +2121,8 @@ function legaTemi(){ document.querySelectorAll('button[data-tema]').forEach(b=>
    non c'era niente da dire, e si prendeva mezza barra in cima. Quando va
    tutto bene resta il pallino e basta; le parole tornano solo quando c'è
    qualcosa di storto, che è l'unico momento in cui servono. */
-const conn=()=>mazzierePerso()
+const conn=()=>solo?''
+  :mazzierePerso()
   ? `<span class="dot"></span><span>Il mazziere non risponde</span>`
   : connected
     ? `<span class="dot on" role="img" aria-label="In linea"></span>`
@@ -1893,7 +2156,7 @@ function legaEsci(){
   const b=$('x'); if(!b) return;
   if(esciChiesto) b.classList.add('chiede');
   b.onclick=()=>{
-    if(!isHost||!S) return esci();
+    if(!isHost||!S||solo) return esci();
     if(!esciChiesto){
       esciChiesto=true; b.classList.add('chiede'); vibra(16); SND.nega();
       avvisa('Esci e il tavolo si smonta per tutti. Tocca ancora per confermare.',{ko:1,ms:4200});
@@ -1984,8 +2247,9 @@ function lobby(err){
   <div class="panel">
     <label class="f" for="nm">Come ti chiamano</label>
     <input type="text" id="nm" maxlength="12" placeholder="Il tuo nome" value="${me.name}">
-    <p class="hint">Da due a sei. I posti restano aperti finché non dai le carte.</p>
-    <button class="btn" id="crea">Apri un tavolo</button>
+    <p class="hint">Da due a sei, ognuno col suo telefono. Da solo giochi subito, contro chi scegli tu.</p>
+    <div class="duebot"><button class="btn" id="crea">Apri un tavolo</button>
+      <button class="btn ghost" id="solo">Da solo</button></div>
   </div>
   <div class="panel">
     <label class="f" for="cd">Ti hanno dato un codice</label>
@@ -2001,6 +2265,10 @@ function lobby(err){
   $('crea').onclick=()=>{ if(!nome())return paint('Scrivi un nome, così gli altri sanno chi sei.');
     me.name=nome(); localStorage.bt_name=me.name;
     if(!connected)return paint('Ancora non sono collegato. Un attimo e riprova.'); apri(); };
+  /* Da solo non serve la rete, quindi non si aspetta il broker: è l'unico
+     bottone della home che funziona anche senza campo. */
+  $('solo').onclick=()=>{ if(!nome())return paint('Scrivi un nome, così i finti sanno con chi giocano.');
+    me.name=nome(); localStorage.bt_name=me.name; apri(true); };
   $('go').onclick=()=>{ const c=($('cd').value||'').trim().toUpperCase();
     if(!nome())return paint('Scrivi un nome prima di entrare.');
     if(c.length!==4)return paint('Il codice è di quattro lettere.');
@@ -2035,12 +2303,26 @@ function stanza(){
   invitoSpunta=invitoOk?invitoFatto:0;
   $('app').innerHTML=`
   <div class="topbar">${conn()}<span class="sp"></span>${mutoBtn()}<button id="rg" title="Regole" aria-label="Regole">${ICO.aiuto}</button><button id="x">Esci</button></div>
-  <button class="roomcode" id="cod" title="Tocca per copiare il codice"
+  ${solo?`<p class="lede" style="font-size:14px;margin-top:2px">Scegli con chi giocare: tocca un nome
+    e si siede un altro. Nessun codice e nessuna rete, funziona anche col telefono in aereo.</p>`
+  :`<button class="roomcode" id="cod" title="Tocca per copiare il codice"
     aria-label="Codice del tavolo ${S.code.split('').join(' ')}, tocca per copiarlo">${S.code}</button>
   <button id="qrtap" aria-label="Ingrandisci il codice QR"><div id="qr"></div></button>
-  <p class="lede" style="font-size:14px">Fai inquadrare il codice, o detta le quattro lettere.</p>
-  <ul class="seatlist">${S.seats.map((s,i)=>`<li class="${s.id===me.id?'me':''}${nuoviPosti[i]?' nuovo':''}"><span class="n">${i+1}</span><span class="nome">${s.name}${s.id===me.id?' · tu':''}</span>${S.albo&&S.albo[s.id]?`<span class="team albo">${S.albo[s.id]} man${S.albo[s.id]>1?'i':'o'} vint${S.albo[s.id]>1?'e':'a'}</span>`:(sq?`<span class="team"><span class="pre">Squadra </span>${i%2?'B':'A'}</span>`:'')}</li>`).join('')
-    +(liberi>0?`<li class="empty"><span class="n">+</span>${liberi} post${liberi>1?'i':'o'} liber${liberi>1?'i':'o'}</li>`:'')}</ul>
+  <p class="lede" style="font-size:14px">Fai inquadrare il codice, o detta le quattro lettere.</p>`}
+  <ul class="seatlist">${S.seats.map((s,i)=>{
+      const eti=S.albo&&S.albo[s.id]?`<span class="team albo">${S.albo[s.id]} man${S.albo[s.id]>1?'i':'o'} vint${S.albo[s.id]>1?'e':'a'}</span>`
+        :(sq?`<span class="team"><span class="pre">Squadra </span>${i%2?'B':'A'}</span>`:'');
+      /* Il finto si cambia toccandogli il nome — si alza uno e se ne siede un
+         altro — e si manda via con la crocetta. Niente pannelli: al tavolo
+         non si apre un menu per cambiare chi hai davanti. */
+      if(s.bot&&isHost) return `<li class="finto${nuoviPosti[i]?' nuovo':''}"><span class="n">${i+1}</span>
+        <button class="nome altro" data-b="${s.id}" title="Fallo alzare e siediti un altro"
+          aria-label="Al posto di ${s.name} si siede un altro">${s.name}<i>${caratt(s.bot).detto}</i></button>
+        ${eti}<button class="via" data-b="${s.id}" title="Mandalo via" aria-label="Manda via ${s.name}">${ICO.esci}</button></li>`;
+      return `<li class="${s.id===me.id?'me':''}${s.bot?' finto':''}${nuoviPosti[i]?' nuovo':''}"><span class="n">${i+1}</span><span class="nome">${s.name}${s.id===me.id?' · tu':''}${s.bot?`<i>${caratt(s.bot).detto}</i>`:''}</span>${eti}</li>`;
+    }).join('')
+    +(liberi>0&&!solo?`<li class="empty"><span class="n">+</span>${liberi} post${liberi>1?'i':'o'} liber${liberi>1?'i':'o'}</li>`:'')
+    +(isHost&&liberi>0?`<li class="empty piu"><button id="piu"><span class="n">+</span>Aggiungi un giocatore finto</button></li>`:'')}</ul>
   ${isHost?`
     <div class="impostazioni">
       <label class="scelta gioco"><select id="gm" aria-label="Che gioco">${Object.keys(GIOCHI).map(g=>
@@ -2054,14 +2336,15 @@ function stanza(){
       k<2?'Serve almeno un altro giocatore':
       !siGiocaIn(S.game,k)?gi.nome+' non si gioca in '+k:
       (S.mano?'Nuova mano in '+k:'Distribuisci le carte in '+k)}</button>
-    <button class="btn ghost${invitoOk?' fatto':''}${invitoOk&&invitoNuovo?' appena':''}" id="link">${
+    ${solo?'':`<button class="btn ghost${invitoOk?' fatto':''}${invitoOk&&invitoNuovo?' appena':''}" id="link">${
       invitoOk?ICO.ok+'<span>Link copiato</span>'
-             :(siCondivide()?'Manda l\'invito':'Copia il link')}</button>`
+             :(siCondivide()?'Manda l\'invito':'Copia il link')}</button>`}`
   :`<p class="hint" style="text-align:center;margin-top:16px">Siete in ${k}. Le carte le dà chi ha aperto il tavolo.</p>`}
-  <p class="hint chiusa">${gi.nome} si gioca in ${elenco(gi.posti)}. ${
+  <p class="hint chiusa">${gi.nome} si gioca in ${elenco(gi.posti)}. ${solo?'':
     S.game==='briscola'?((k===3?'In tre si toglie un due dal mazzo: i punti restano 120. ':'')
       +(k===6?'In sei si tolgono i quattro due: i punti restano 120. ':'')):''
-  }Chi ha aperto il tavolo fa da mazziere e deve tenere la pagina aperta.</p>`;
+  }${solo?'I finti giocano solo con le carte che vedrebbero: la tua mano non la sanno.'
+        :'Chi ha aperto il tavolo fa da mazziere e deve tenere la pagina aperta.'}</p>`;
   legaEsci(); $('rg').onclick=regole; legaMuto();
   if($('cod'))$('cod').onclick=()=>copiaCodice($('cod'));
   if($('qrtap'))$('qrtap').onclick=qrGrande;
@@ -2076,6 +2359,11 @@ function stanza(){
     if(!siGiocaIn(v,k)) avvisa(GIOCHI[v].nome+' si gioca in '+elenco(GIOCHI[v].posti)+', e siete in '+k,{ko:true});
     send({t:'gioco',v}); };
   if($('link'))$('link').onclick=mandaInvito;
+  if($('piu'))$('piu').onclick=()=>{ vibra(12); SND.arriva&&SND.arriva(); send({t:'piubot'}); };
+  document.querySelectorAll('.seatlist .altro').forEach(b=>b.onclick=()=>{
+    vibra(10); send({t:'altrobot',chi:b.dataset.b}); });
+  document.querySelectorAll('.seatlist .via').forEach(b=>b.onclick=()=>{
+    vibra(10); send({t:'menobot',chi:b.dataset.b}); });
   /* Si misura, e se il QR non ci sta si toglie qualcosa e si rimisura: prima
      le due righe di spiegazione, che a quel punto sono già state lette, poi i
      posti su due colonne. Lo decide lo spazio vero e non il numero di
@@ -2083,6 +2371,15 @@ function stanza(){
      su uno con l'incavo e la barra in basso. */
   const app=$('app');
   app.classList.remove('senzanote','stretta');
+  /* Da solo non c'è il QR da far cedere, ma la lista dei posti cresce lo
+     stesso — e i finti portano il mestiere scritto sotto al nome, che è una
+     riga in più a testa. Si toglie con lo stesso ordine: prima le
+     spiegazioni, poi i posti su due colonne. */
+  if(solo){
+    if(spazioQR()<0) app.classList.add('senzanote');
+    if(spazioQR()<0) app.classList.add('stretta');
+    return misuraSchermo();
+  }
   let spazio=spazioQR();
   if(spazio<96){ app.classList.add('senzanote'); spazio=spazioQR(); }
   if(spazio<96){ app.classList.add('stretta'); spazio=spazioQR(); }
@@ -2813,13 +3110,15 @@ window.addEventListener('keydown',e=>{
 });
 
 setInterval(()=>{
-  if(!code||!cli||!connected) return;
+  if(!code||solo||!cli||!connected) return;
   send({t:'qui'});
   if(isHost){
     try{ cli.publish(T(code).h,'1',{qos:0}); }catch(e){}
     if(!S||!S.seats) return;
     const ora=Date.now();
-    const via=S.seats.filter(x=>x.id!==me.id&&ora-(visti[x.id]||0)>VIA_MS).map(x=>x.id);
+    /* I finti non mandano il battito perché non ce l'hanno: sono qui, e
+       segnarli «non risponde» sarebbe l'unica cosa che possono non fare. */
+    const via=S.seats.filter(x=>x.id!==me.id&&!x.bot&&ora-(visti[x.id]||0)>VIA_MS).map(x=>x.id);
     const chiave=via.join();
     if(chiave!==viaPrec){ viaPrec=chiave; S.via=via; pubState(); paint(); }
   } else {
